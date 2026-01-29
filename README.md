@@ -1,2 +1,2 @@
-# Drone-PID-Leveling-
-Matthias Ellinger Bachelor project, a stm32 application to read IMU data and auto level the drone to a user defined orientation
+# Drone-PID-Leveling
+This Project reads out the BMI-088 Sensor, filters and processes it and then adjusts the pwm signals of the attached motors to keep the drone at a user defined orientation. A 2 loop PID controller is implemented for this.
