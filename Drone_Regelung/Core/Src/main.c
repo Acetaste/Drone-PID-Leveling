@@ -61,13 +61,11 @@
 #define gyro_error 4
 #define acc_error 3
 #define initial_uncertainty 2
-#define Looptime 0.1 //seconds between measurements
+#define Looptime 0.002 //seconds between measurements
 #define P_outer 2
 #define P_const 0.6
 #define I_const 3.5
 #define D_const 0.03
-#define desired_Roll 0
-#define desired_Pitch 0
 #define desired_Yaw 0
 /* USER CODE END PD */
 
@@ -115,18 +113,20 @@ static uint8_t stop_flag= 1;
 static uint8_t transmission = 0;
 static uint8_t data_index = 0;
 static uint8_t get_data_flag = 0;
-static uint8_t increase_flag = 0;
-static uint8_t decrease_flag = 0;
+static uint8_t up_flag = 0;
+static uint8_t down_flag = 0;
+static uint8_t left_flag = 0;
+static uint8_t right_flag = 0;
 static float KalmanRollAngle =0, KalmanPitchAngle = 0;
 static float KalmanRollUncertainty = 2,KalmanPitchUncertainty = 2;
 
-static float desired_Roll_Rate, desired_Pitch_Rate;
-static float Error_Roll_Rate, Error_Pitch_Rate;
-static float Prev_Error_Roll_Rate = 0, Prev_Error_Pitch_Rate = 0;
-static float Prev_Int_Roll_Rate = 0, Prev_Int_Pitch_Rate = 0;
-static float Error_Roll_Ang, Error_Pitch_Ang;
-static float Prev_Error_Roll_Ang=0, Prev_Error_Pitch_Ang=0;
-static float Prev_Int_Roll_Ang=0, Prev_Int_Pitch_Ang=0;
+static float desired_Roll_Rate= 0, desired_Pitch_Rate= 0 , desired_Yaw_Rate= 0;
+static float Error_Roll_Rate = 0, Error_Pitch_Rate= 0, Error_Yaw_Rate= 0;
+static float Prev_Error_Roll_Rate = 0, Prev_Error_Pitch_Rate = 0, Prev_Error_Yaw_Rate = 0;
+static float Prev_Int_Roll_Rate = 0, Prev_Int_Pitch_Rate = 0, Prev_Int_Yaw_Rate = 0;
+static float Error_Roll_Ang= 0, Error_Pitch_Ang= 0, Error_Yaw_Ang= 0;
+static float Prev_Error_Roll_Ang=0, Prev_Error_Pitch_Ang=0, Prev_Error_Yaw_Ang=0;
+static float Prev_Int_Roll_Ang=0, Prev_Int_Pitch_Ang=0, Prev_Int_Yaw_Ang=0;
 
 
 /* USER CODE END 0 */
@@ -173,9 +173,11 @@ int main(void)
   float gyro_rate[3], acc_rate[3];
   float accel_pitch, accel_roll;
   int counter = 0;
-  float InputPitch, InputRoll;
-  float P_Pitch = 1;
-
+  float InputPitch, InputRoll, InputYaw;
+  float P_Pitch = 15;
+  float desired_Pitch 	= 0;
+  float desired_Roll	= 0;
+  float yaw = 0;
 
 
   configure_imu();
@@ -189,6 +191,34 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  if(left_flag == 1)
+	  {
+		  left_flag = 0;
+		  desired_Pitch += 5;
+		  sprintf((char*) word,"Desired Pitch: %d\n",(int) desired_Pitch);
+		  HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
+	  }
+	  if(right_flag == 1)
+	  {
+		  right_flag = 0;
+		  desired_Pitch -= 5;
+		  sprintf((char*) word,"Desired Pitch: %d\n",(int) desired_Pitch);
+		  HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
+	  }
+	  if(up_flag == 1)
+	  {
+		  up_flag = 0;
+		  desired_Roll += 5;
+		  sprintf((char*) word,"Desired Roll: %d\n",(int) desired_Roll);
+		  HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
+	  }
+	  if(down_flag == 1)
+	  {
+		  down_flag = 0;
+		  desired_Roll -= 5;
+		  sprintf((char*) word,"Desired Roll: %d\n",(int) desired_Roll);
+		  HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
+	  }
 
 	  if(get_data_flag ==1)
 	  {
@@ -198,52 +228,67 @@ int main(void)
 
 		  accel_pitch = acc_pitch((*(acc_rate+0)),(*(acc_rate+1)),(*(acc_rate+2)));
 		  accel_roll = acc_roll((*(acc_rate+0)),(*(acc_rate+1)),(*(acc_rate+2)));
+		  yaw += gyro_rate[2]* Looptime;
 
 		  KalmanCalculation(KalmanRollAngle,KalmanRollUncertainty,gyro_rate[0], accel_roll, KalmanOutput);
-		  KalmanRollAngle = KalmanOutput[0];
-		  KalmanRollUncertainty = KalmanOutput[1];
+		  KalmanRollAngle 			= KalmanOutput[0];
+		  KalmanRollUncertainty 	= KalmanOutput[1];
 		  KalmanCalculation(KalmanPitchAngle,KalmanPitchUncertainty,gyro_rate[1], accel_pitch, KalmanOutput);
-		  KalmanPitchAngle = KalmanOutput[0];
-		  KalmanPitchUncertainty = KalmanOutput[1];
+		  KalmanPitchAngle 			= KalmanOutput[0];
+		  KalmanPitchUncertainty 	= KalmanOutput[1];
 
+
+		  Error_Roll_Ang 	= 	desired_Roll 		-KalmanRollAngle;
+		  Error_Pitch_Ang 	= 	desired_Pitch		-KalmanPitchAngle;
+		  Error_Yaw_Ang 	= 	desired_Yaw 		-yaw;
+
+		  pid_equation(Error_Roll_Ang, Prev_Error_Roll_Ang, Prev_Int_Roll_Ang, P_outer, 0, 0, PID_Output);
+		  Prev_Error_Roll_Ang 	= Error_Roll_Ang;
+		  desired_Roll_Rate 	= PID_Output[0];
+		  Prev_Int_Roll_Ang 	= PID_Output[1];
+
+		  pid_equation(Error_Pitch_Ang, Prev_Error_Pitch_Ang, Prev_Int_Pitch_Ang, P_outer, 0, 0, PID_Output);
+		  Prev_Error_Pitch_Ang 	= Error_Pitch_Ang;
+		  desired_Pitch_Rate 	= PID_Output[0];
+		  Prev_Int_Pitch_Ang 	= PID_Output[1];
+
+		  pid_equation(Error_Yaw_Ang, Prev_Error_Yaw_Ang, Prev_Int_Yaw_Ang, P_outer, 0, 0, PID_Output);
+		  Prev_Error_Yaw_Ang 	= Error_Yaw_Ang;
+		  desired_Yaw_Rate		= PID_Output[0];
+		  Prev_Int_Yaw_Ang		= PID_Output[1];
+
+		  Error_Roll_Rate 	= desired_Roll_Rate 	- gyro_rate[0];
+		  Error_Pitch_Rate 	= desired_Pitch_Rate 	- gyro_rate[1];
+		  Error_Yaw_Rate 	= desired_Yaw_Rate 		- gyro_rate[2];
+
+		  pid_equation(Error_Roll_Rate, Prev_Error_Roll_Rate, Prev_Int_Roll_Rate,  		10, 0, 0, PID_Output);
+		  Prev_Error_Roll_Rate 	= Error_Roll_Rate;
+		  InputRoll 			= PID_Output[0];
+		  Prev_Int_Roll_Rate 	= PID_Output[1];
+
+		  pid_equation(Error_Pitch_Rate, Prev_Error_Pitch_Rate, Prev_Int_Pitch_Rate, 	1, 0, 0, PID_Output);
+		  Prev_Error_Pitch_Rate = Error_Pitch_Rate;
+		  InputPitch 			= PID_Output[0];
+		  Prev_Int_Pitch_Rate 	= PID_Output[1];
+
+		  pid_equation(Error_Yaw_Rate, Prev_Error_Yaw_Rate, Prev_Int_Yaw_Rate, 			1, 0, 0, PID_Output);
+		  Prev_Error_Yaw_Rate	= Error_Yaw_Rate;
+		  InputYaw	 			= PID_Output[0];
+		  Prev_Int_Yaw_Rate 	= PID_Output[1];
+
+		  motor_inputs( InputRoll, InputPitch, InputYaw, MotorInput);
 		  if (counter>= 99)
 		  {
-			  sprintf((char*) word,"Roll: %d Pitch: %d\n",(int)(KalmanRollAngle*1),(int)(KalmanPitchAngle*1));
+			  sprintf((char*) word,"Roll: %d Pitch: %d Yaw: %d\n",(int)KalmanRollAngle,(int)KalmanPitchAngle,(int) yaw);
+			  HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
+			  sprintf((char*) word,"InputRoll: %d,InputPitch: %d,InputYaw: %d\n",(int) InputRoll,(int) InputPitch,(int) InputYaw);
 			  HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
 			  counter = 0;
 		  }
 		  else
 		  {
-			  counter ++;
+		  		counter ++;
 		  }
-		  Error_Roll_Ang = desired_Roll -KalmanRollAngle;
-		  Error_Pitch_Ang = desired_Pitch -KalmanPitchAngle;
-
-
-		  pid_equation(Error_Roll_Ang, Prev_Error_Roll_Ang, Prev_Int_Roll_Ang, P_outer, 0, 0, PID_Output);
-		  Prev_Error_Roll_Ang = Error_Roll_Ang;
-		  desired_Roll_Rate = PID_Output[0];
-		  Prev_Int_Roll_Ang = PID_Output[1];
-
-		  pid_equation(Error_Pitch_Ang, Prev_Error_Pitch_Ang, Prev_Int_Pitch_Ang, P_outer, 0, 0, PID_Output);
-		  Prev_Error_Pitch_Ang = Error_Pitch_Ang;
-		  desired_Pitch_Rate = PID_Output[0];
-		  Prev_Int_Pitch_Ang = PID_Output[1];
-
-		  Error_Roll_Rate = desired_Roll_Rate - gyro_rate[0];
-		  Error_Pitch_Rate = desired_Pitch_Rate - gyro_rate[1];
-
-		  pid_equation(Error_Roll_Rate, Prev_Error_Roll_Rate, Prev_Int_Roll_Rate, 3.0, 0, 0, PID_Output);
-		  Prev_Error_Roll_Rate = Error_Roll_Rate;
-		  InputRoll = PID_Output[0];
-		  Prev_Int_Roll_Rate = PID_Output[1];
-
-		  pid_equation(Error_Pitch_Rate, Prev_Error_Pitch_Rate, Prev_Int_Pitch_Rate, P_Pitch, 0, 0, PID_Output);
-		  Prev_Error_Pitch_Rate = Error_Pitch_Rate;
-		  InputPitch = PID_Output[0];
-		  Prev_Int_Pitch_Rate = PID_Output[1];
-
-		  motor_inputs( InputRoll, InputPitch, MotorInput);
 		 /*sprintf((char*) word,"Motor1: %d,Motor2: %d,Motor3: %d,Motor4: %d,\n",(int)(*(MotorInput+0)),(int)(*(MotorInput+1)),(int)(*(MotorInput+2)),(int)(*(MotorInput+3)));
 		  HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);*/
 
@@ -619,7 +664,6 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	uint8_t word[50];
 	int duration;
 	char character;
 
@@ -649,36 +693,44 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 				transmission = 0;
 				character =decode(binary);
 				HAL_NVIC_EnableIRQ(TIM7_IRQn);
-				if (character == '1')
+				switch (character)
 				{
+				case('1'):
 					stop_flag = 1;
-					  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1, 0);
-					  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2, 0);
-					  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3, 0);
-					  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4, 0);
+					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1, 0);
+					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2, 0);
+					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3, 0);
+					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4, 0);
+					break;
 
-				}
-				if(character == '2')
-				{
+				case('2'):
 					stop_flag = 1;
-					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1, 10);
-					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2, 10);
-					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3, 10);
-					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4, 10);
-				}
-				if(character == 'O')
-				{
+					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1, 30);
+					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2, 30);
+					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3, 30);
+					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4, 30);
+					break;
+
+				case('O'):
 					stop_flag = 0;
-				}
-				if(character == 'U')
-				{
-					increase_flag = 1;
-				}
-				if(character == 'D')
-				{
-					decrease_flag = 1;
-				}
+					break;
 
+				case('U'):
+					up_flag = 1;
+					break;
+
+				case('D'):
+					down_flag = 1;
+					break;
+
+				case('L'):
+					left_flag = 1;
+					break;
+
+				case('R'):
+					right_flag = 1;
+					break;
+				}
 
 			}
 		}

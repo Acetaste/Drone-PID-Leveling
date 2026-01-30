@@ -45,9 +45,9 @@ void pid_equation(float Error, float Prev_Error, float Prev_Int, float P, float 
 
 int pwm_cap(int pwm)
 {
-	if(pwm >= 100)
+	if(pwm >= 300)
 	{
-		pwm = 99;
+		pwm = 299;
 	}
 	if(pwm < 0)
 		{
@@ -82,11 +82,11 @@ void KalmanCalculation(float State, float Uncertainty, float Input, float Measur
 
 
 
-void motor_inputs(float InputRoll, float InputPitch, int* MotorInput)
+void motor_inputs(float InputRoll, float InputPitch, float InputYaw, int* MotorInput)
 {
 	float pwm_scale = 1;
-	*(MotorInput+0) = (int)(pwm_scale*((+1)*InputPitch+(-1)*InputRoll));
-	*(MotorInput+1) = (int)(pwm_scale*((+1)*InputPitch+(+1)*InputRoll));
-	*(MotorInput+2) = (int)(pwm_scale*((-1)*InputPitch+(+1)*InputRoll));
-	*(MotorInput+3) = (int)(pwm_scale*((-1)*InputPitch+(-1)*InputRoll));
+	*(MotorInput+0) = (int)(pwm_scale*((+1)*InputPitch+(-1)*InputRoll+(+1)*InputYaw));
+	*(MotorInput+1) = (int)(pwm_scale*((+1)*InputPitch+(+1)*InputRoll+(-1)*InputYaw));
+	*(MotorInput+2) = (int)(pwm_scale*((-1)*InputPitch+(+1)*InputRoll+(+1)*InputYaw));
+	*(MotorInput+3) = (int)(pwm_scale*((-1)*InputPitch+(-1)*InputRoll+(-1)*InputYaw));
 }
