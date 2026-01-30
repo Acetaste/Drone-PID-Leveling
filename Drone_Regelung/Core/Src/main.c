@@ -102,13 +102,14 @@ void get_gyr_data(float* gyro_rate);
 void get_acc_data(float* acc_rate,  int acc_range);
 void configure_imu(void);
 void timer_start(void);
-int selftest_accel(void);
+void selftest_accel(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
 
+unsigned int binary =0;
 static uint16_t timer_val;
 static uint8_t stop_flag= 1;
 static uint8_t transmission = 0;
@@ -620,8 +621,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	uint8_t word[50];
 	int duration;
-	int data[32];
-	int binary ;
 	char character;
 
 	if(GPIO_Pin == GPIO_PIN_1)
@@ -636,32 +635,19 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 		if(transmission == 1 )
 		{
-			if(duration>1700)
+
+			if(duration>1700 && data_index != 0)
 			{
-				*(data+data_index)=1;
-				if (data_index == 0)
-				{
-					*(data+data_index)=0;
-				}
-				data_index++;
+				binary |= (1 << data_index);
 
 			}
-			else
-			{
-				*(data+data_index)= 0;
-				data_index++;
-			}
-			if(data_index>=32)
+
+			data_index++;
+			if(data_index>=31)
 			{
 
 				transmission = 0;
-				for(int i = 0;i<32;i++)
-				{
-					binary |= (data[i]<< i);
-				}
 				character =decode(binary);
-				sprintf((char*)word,"Symbol: %c\n", character );
-				HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
 				HAL_NVIC_EnableIRQ(TIM7_IRQn);
 				if (character == '1')
 				{
@@ -701,8 +687,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			if( (5500>duration)  && (duration> 4500))
 			{
 				transmission = 1;
-				sprintf((char*)word,"Transmission started\n");
-				HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
+				binary = 0;
 				data_index = 0;
 				binary = 0;
 				get_data_flag= 0;
@@ -866,7 +851,7 @@ void configure_imu(void)
 
 
 
-int selftest_accel(void)
+void selftest_accel(void)
 {
 	uint8_t word[80];
 	HAL_StatusTypeDef ret;

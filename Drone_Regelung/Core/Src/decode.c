@@ -11,55 +11,55 @@ char decode(int binary)
 	char result;
 	switch(binary)
 	{
-	case 3125149440:
+	case 977665792:
 		result = '1';
 		break;
-	case 3108437760:
+	case 960954112 :
 		result = '2';
 		break;
-	case 3091726080:
+	case 944242432:
 		result = '3';
 		break;
-	case 3141861120:
+	case 994377472:
 		result = '4';
 		break;
-	case 3208707840:
+	case 1061224192:
 		result = '5';
 		break;
-	case 3158572800:
+	case 1011089152:
 		result = '6';
 		break;
-	case 4161273600:
+	case 2013789952:
 		result = '7';
 		break;
-	case 3927310080:
+	case 1779826432:
 		result = '8';
 		break;
-	case 4127850240:
+	case 1980366592:
 		result = '9';
 		break;
-	case 3910598400:
+	case 1763114752:
 		result = '*';
 		break;
-	case 3860463360:
+	case 1712979712:
 		result = '0';
 		break;
-	case 4061003520:
+	case 1913519872 :
 		result = '#';
 		break;
-	case 3877175040:
+	case  1729691392:
 		result = 'U';
 		break;
-	case 2907897600:
+	case 760413952:
 		result = 'D';
 		break;
-	case 4144561920:
+	case 1997078272:
 		result = 'L';
 		break;
-	case 2774204160:
+	case 626720512:
 		result = 'R';
 		break;
-	case 3810328320:
+	case 1662844672:
 		result = 'O';
 		break;
 	}
