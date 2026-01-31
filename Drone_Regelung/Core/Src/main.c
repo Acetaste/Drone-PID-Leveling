@@ -212,17 +212,17 @@ int main(void)
 		  Error_Pitch_Rate 	= desired_Pitch_Rate 	- gyro_rate[1];
 		  Error_Yaw_Rate 	= desired_Yaw_Rate 		- gyro_rate[2];
 
-		  pid_equation(Error_Roll_Rate, Prev_Error_Roll_Rate, Prev_Int_Roll_Rate,  		1, 0, 0, PID_Output);
+		  pid_equation(Error_Roll_Rate, Prev_Error_Roll_Rate, Prev_Int_Roll_Rate,  		0.3, 1, 0.001, PID_Output);
 		  Prev_Error_Roll_Rate 	= Error_Roll_Rate;
 		  InputRoll 			= PID_Output[0];
 		  Prev_Int_Roll_Rate 	= PID_Output[1];
 
-		  pid_equation(Error_Pitch_Rate, Prev_Error_Pitch_Rate, Prev_Int_Pitch_Rate, 	1, 0, 0, PID_Output);
+		  pid_equation(Error_Pitch_Rate, Prev_Error_Pitch_Rate, Prev_Int_Pitch_Rate, 	0.2, 0.5, 0.001, PID_Output);
 		  Prev_Error_Pitch_Rate = Error_Pitch_Rate;
 		  InputPitch 			= PID_Output[0];
 		  Prev_Int_Pitch_Rate 	= PID_Output[1];
 
-		  pid_equation(Error_Yaw_Rate, Prev_Error_Yaw_Rate, Prev_Int_Yaw_Rate, 			3, 0, 0, PID_Output);
+		  pid_equation(Error_Yaw_Rate, Prev_Error_Yaw_Rate, Prev_Int_Yaw_Rate, 			1, 1, 0, PID_Output);
 		  Prev_Error_Yaw_Rate	= Error_Yaw_Rate;
 		  InputYaw	 			= PID_Output[0];
 		  Prev_Int_Yaw_Rate 	= PID_Output[1];
