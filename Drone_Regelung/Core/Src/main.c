@@ -25,6 +25,8 @@
 #include <string.h>
 #include "decode.h"
 #include "calculations.h"
+#include "startup.h"
+#include "read_sensor.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -34,39 +36,20 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define GYR_ADDR (0x69u <<1)
-#define ACC_ADDR (0x18u <<1)
-#define GYR_X_ADDR 0x02u
-#define ACC_X_ADDR 0x12u
-
-#define ACC_PWR_CONF_ADDR 0x7Cu
-#define ACC_PWR_CNTRL_ADDR 0x7Du
-
-#define ACC_RANGE_ADDR 0x41
-#define ACC_CONF_ADDR 0x40
-#define ACC_SELF_TEST_ADDR 0x6D
-
-#define ACC_IT_MAP_ADDR 0x58u
-#define GYR_IT_CNTRL_ADDR 0x15u
-#define GYR_IT_MAP_ADDR 0x18u
-
-#define ACC_POWER_ON 0x04u
-#define ACC_ACTIVE_MODE 0x00u
-#define ACC_IT_1_SELECT 0x04u
-#define GYR_IT_POWER_ON 0x80u
-#define GYR_IT_3_SELECT 0x01u
-
-#define gyro_range  2000
-#define standard_acc_range  6
-#define gyro_error 4
-#define acc_error 3
 #define initial_uncertainty 2
 #define Looptime 0.002 //seconds between measurements
+
 #define P_outer 2
+#define I_outer 0
+#define D_outer 0
+
 #define P_const 0.6
 #define I_const 3.5
 #define D_const 0.03
+
 #define desired_Yaw 0
+
+#define standard_acc_range  6
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -96,11 +79,7 @@ static void MX_TIM1_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
-void get_gyr_data(float* gyro_rate);
-void get_acc_data(float* acc_rate,  int acc_range);
-void configure_imu(void);
-void timer_start(void);
-void selftest_accel(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -113,10 +92,7 @@ static uint8_t stop_flag= 1;
 static uint8_t transmission = 0;
 static uint8_t data_index = 0;
 static uint8_t get_data_flag = 0;
-static uint8_t up_flag = 0;
-static uint8_t down_flag = 0;
-static uint8_t left_flag = 0;
-static uint8_t right_flag = 0;
+static char IR_Character = '\0';
 static float KalmanRollAngle =0, KalmanPitchAngle = 0;
 static float KalmanRollUncertainty = 2,KalmanPitchUncertainty = 2;
 
@@ -174,14 +150,16 @@ int main(void)
   float accel_pitch, accel_roll;
   int counter = 0;
   float InputPitch, InputRoll, InputYaw;
-  float P_Pitch = 15;
+  float P_Pitch = 1;
+  float P_Roll = 1;
+  float P_Yaw = 1;
   float desired_Pitch 	= 0;
   float desired_Roll	= 0;
   float yaw = 0;
 
 
-  configure_imu();
-  timer_start();
+  configure_imu(&hi2c3, &huart2);
+  timer_start(&timer_val,&htim1, &htim6, &htim7);
 
 
 
@@ -191,44 +169,17 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  if(left_flag == 1)
-	  {
-		  left_flag = 0;
-		  desired_Pitch += 5;
-		  sprintf((char*) word,"Desired Pitch: %d\n",(int) desired_Pitch);
-		  HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
-	  }
-	  if(right_flag == 1)
-	  {
-		  right_flag = 0;
-		  desired_Pitch -= 5;
-		  sprintf((char*) word,"Desired Pitch: %d\n",(int) desired_Pitch);
-		  HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
-	  }
-	  if(up_flag == 1)
-	  {
-		  up_flag = 0;
-		  desired_Roll += 5;
-		  sprintf((char*) word,"Desired Roll: %d\n",(int) desired_Roll);
-		  HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
-	  }
-	  if(down_flag == 1)
-	  {
-		  down_flag = 0;
-		  desired_Roll -= 5;
-		  sprintf((char*) word,"Desired Roll: %d\n",(int) desired_Roll);
-		  HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
-	  }
-
+	  interpret_flags(&IR_Character, &desired_Pitch, &desired_Roll, &stop_flag, &htim1, &huart2, &P_Pitch,&P_Roll, &P_Yaw);
 	  if(get_data_flag ==1)
 	  {
 		  get_data_flag =0;
-		  get_gyr_data(gyro_rate);
-		  get_acc_data(acc_rate, standard_acc_range);
+		  get_gyr_data(gyro_rate, &hi2c3, &huart2);
+		  get_acc_data(acc_rate, standard_acc_range, &hi2c3, &huart2);
 
 		  accel_pitch = acc_pitch((*(acc_rate+0)),(*(acc_rate+1)),(*(acc_rate+2)));
 		  accel_roll = acc_roll((*(acc_rate+0)),(*(acc_rate+1)),(*(acc_rate+2)));
 		  yaw += gyro_rate[2]* Looptime;
+		  yaw = yaw_cap(yaw);
 
 		  KalmanCalculation(KalmanRollAngle,KalmanRollUncertainty,gyro_rate[0], accel_roll, KalmanOutput);
 		  KalmanRollAngle 			= KalmanOutput[0];
@@ -242,17 +193,17 @@ int main(void)
 		  Error_Pitch_Ang 	= 	desired_Pitch		-KalmanPitchAngle;
 		  Error_Yaw_Ang 	= 	desired_Yaw 		-yaw;
 
-		  pid_equation(Error_Roll_Ang, Prev_Error_Roll_Ang, Prev_Int_Roll_Ang, P_outer, 0, 0, PID_Output);
+		  pid_equation(Error_Roll_Ang, Prev_Error_Roll_Ang, Prev_Int_Roll_Ang, P_outer, I_outer, D_outer, PID_Output);
 		  Prev_Error_Roll_Ang 	= Error_Roll_Ang;
 		  desired_Roll_Rate 	= PID_Output[0];
 		  Prev_Int_Roll_Ang 	= PID_Output[1];
 
-		  pid_equation(Error_Pitch_Ang, Prev_Error_Pitch_Ang, Prev_Int_Pitch_Ang, P_outer, 0, 0, PID_Output);
+		  pid_equation(Error_Pitch_Ang, Prev_Error_Pitch_Ang, Prev_Int_Pitch_Ang, P_outer, I_outer, D_outer, PID_Output);
 		  Prev_Error_Pitch_Ang 	= Error_Pitch_Ang;
 		  desired_Pitch_Rate 	= PID_Output[0];
 		  Prev_Int_Pitch_Ang 	= PID_Output[1];
 
-		  pid_equation(Error_Yaw_Ang, Prev_Error_Yaw_Ang, Prev_Int_Yaw_Ang, P_outer, 0, 0, PID_Output);
+		  pid_equation(Error_Yaw_Ang, Prev_Error_Yaw_Ang, Prev_Int_Yaw_Ang, P_outer, I_outer, D_outer, PID_Output);
 		  Prev_Error_Yaw_Ang 	= Error_Yaw_Ang;
 		  desired_Yaw_Rate		= PID_Output[0];
 		  Prev_Int_Yaw_Ang		= PID_Output[1];
@@ -261,7 +212,7 @@ int main(void)
 		  Error_Pitch_Rate 	= desired_Pitch_Rate 	- gyro_rate[1];
 		  Error_Yaw_Rate 	= desired_Yaw_Rate 		- gyro_rate[2];
 
-		  pid_equation(Error_Roll_Rate, Prev_Error_Roll_Rate, Prev_Int_Roll_Rate,  		10, 0, 0, PID_Output);
+		  pid_equation(Error_Roll_Rate, Prev_Error_Roll_Rate, Prev_Int_Roll_Rate,  		1, 0, 0, PID_Output);
 		  Prev_Error_Roll_Rate 	= Error_Roll_Rate;
 		  InputRoll 			= PID_Output[0];
 		  Prev_Int_Roll_Rate 	= PID_Output[1];
@@ -271,7 +222,7 @@ int main(void)
 		  InputPitch 			= PID_Output[0];
 		  Prev_Int_Pitch_Rate 	= PID_Output[1];
 
-		  pid_equation(Error_Yaw_Rate, Prev_Error_Yaw_Rate, Prev_Int_Yaw_Rate, 			1, 0, 0, PID_Output);
+		  pid_equation(Error_Yaw_Rate, Prev_Error_Yaw_Rate, Prev_Int_Yaw_Rate, 			3, 0, 0, PID_Output);
 		  Prev_Error_Yaw_Rate	= Error_Yaw_Rate;
 		  InputYaw	 			= PID_Output[0];
 		  Prev_Int_Yaw_Rate 	= PID_Output[1];
@@ -665,7 +616,7 @@ static void MX_GPIO_Init(void)
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	int duration;
-	char character;
+
 
 	if(GPIO_Pin == GPIO_PIN_1)
 	{
@@ -689,49 +640,18 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			data_index++;
 			if(data_index>=31)
 			{
-
 				transmission = 0;
-				character =decode(binary);
+				IR_Character =decode(binary);
 				HAL_NVIC_EnableIRQ(TIM7_IRQn);
-				switch (character)
+
+				if( IR_Character == '1')
 				{
-				case('1'):
 					stop_flag = 1;
 					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1, 0);
 					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2, 0);
 					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3, 0);
 					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4, 0);
-					break;
-
-				case('2'):
-					stop_flag = 1;
-					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1, 30);
-					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2, 30);
-					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3, 30);
-					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4, 30);
-					break;
-
-				case('O'):
-					stop_flag = 0;
-					break;
-
-				case('U'):
-					up_flag = 1;
-					break;
-
-				case('D'):
-					down_flag = 1;
-					break;
-
-				case('L'):
-					left_flag = 1;
-					break;
-
-				case('R'):
-					right_flag = 1;
-					break;
 				}
-
 			}
 		}
 		if(transmission== 0)
@@ -762,222 +682,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		}
 
 	}
-}
-void get_gyr_data(float* gyro_rate)
-{
-	HAL_StatusTypeDef ret;
-	uint8_t word[50];
-	int16_t twoByte;
-	uint8_t byteLSB, byteMSB;
-	word[0]= GYR_X_ADDR;
-					ret= HAL_I2C_Master_Transmit(&hi2c3, GYR_ADDR, word, 1, 100);
-					if(ret != HAL_OK)
-					{
-						strcpy((char*)word,"Error Gyr Transmit \n");
-						HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
-					}
-					else
-					{
-						HAL_I2C_Master_Receive(&hi2c3, GYR_ADDR, word, 6, 100);
-						if(ret != HAL_OK)
-						{
-							strcpy((char*)word,"Error Gyr Received \n");
-							HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
-						}
-						else
-						{
-							for(int i= 0; i<3; i++)
-							{
-								byteLSB = word[i*2];
-								byteMSB = word[i*2+1];
-								twoByte = byteMSB<<8 |byteLSB;
-								*(gyro_rate+i)= twoByte*gyro_range/32768;
-							}
-							/*sprintf((char*) word,"Gyro X: %d\nGyro Y: %d\nGyro Z: %d\n\n", (signed int)(*gyro_rate),(signed int)(*(gyro_rate+1)),(signed int)*(gyro_rate+2));
-							HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);*/
-						}
-					}
-}
-void get_acc_data(float* acc_rate,  int acc_range)
-{
-	HAL_StatusTypeDef ret;
-	uint8_t word[50];
-	int16_t twoByte;
-	uint8_t byteLSB, byteMSB;
-
-	word[0]= ACC_X_ADDR;
-	ret= HAL_I2C_Master_Transmit(&hi2c3, ACC_ADDR, word, 1, 100);
-	if(ret != HAL_OK)
-	{
-		strcpy((char*)word,"Error ACC Transmit \n");
-		HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
-	}
-	else
-	{
-		HAL_I2C_Master_Receive(&hi2c3, ACC_ADDR, word, 6, 100);
-		if(ret != HAL_OK)
-		{
-			strcpy((char*)word,"Error ACC Received \n");
-			HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
-		}
-		else
-		{
-			for(int i= 0; i<3; i++)
-			{
-				byteLSB = word[i*2];
-				byteMSB = word[i*2+1];
-				twoByte = byteMSB<<8 |byteLSB;
-				*(acc_rate+i)= twoByte*acc_range*1000/32768;
-			}
-
-
-								/*sprintf((char*)word,"Acc X: %d\nAcc Y: %d\nAcc Z: %d\n\n", (int)(*(acc_rate+0)),(int)(*(acc_rate+1)),(int)(*(acc_rate+2)) );
-								HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);*/
-
-
-						 }
-				}
-
-
-}
-
-
-void timer_start(void)
-{
-	HAL_TIM_Base_Start_IT(&htim7);
-	HAL_TIM_Base_Start(&htim6);
-	timer_val = __HAL_TIM_GET_COUNTER(&htim6);
-	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
-	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
-	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
-	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
-}
-void configure_imu(void)
-{
-	 HAL_StatusTypeDef ret;
-	 uint8_t word[50];
-
-	  //Setup Active Power Mode and Power on to Accelerometer
-	 word[0] = ACC_ACTIVE_MODE;
-	 ret = HAL_I2C_Mem_Write(&hi2c3, ACC_ADDR, ACC_PWR_CONF_ADDR, 1, word, 1, 100);
-	 if(ret != HAL_OK)
-	 {
-		strcpy((char*)word,"Error Active Mode ACC\n");
-		HAL_UART_Transmit(&huart2, word, strlen((char*)word), HAL_MAX_DELAY);
-	 }
-	 word[0] = ACC_POWER_ON;
-	 ret = HAL_I2C_Mem_Write(&hi2c3, ACC_ADDR, ACC_PWR_CNTRL_ADDR, 1, word, 1, 100);
-	 if(ret != HAL_OK)
-	 {
-	  	strcpy((char*)word,"Error Power ON ACC\n");
-	  	HAL_UART_Transmit(&huart2, word, strlen((char*)word), HAL_MAX_DELAY);
-	 }
-
-
-	  	  //Setup Interrupt for Gyroscope
-	 word[0] = GYR_IT_POWER_ON;
-	 ret = HAL_I2C_Mem_Write(&hi2c3, GYR_ADDR, GYR_IT_CNTRL_ADDR, 1, word, 1, 100);
-	 if(ret != HAL_OK)
-	 {
-		strcpy((char*)word,"Error IT ON GYR\n");
-	  	HAL_UART_Transmit(&huart2, word, strlen((char*)word), HAL_MAX_DELAY);
-	 }
-
-	  	  // Setup IT PIN 1 and 3 respectively
-	 word[0] = GYR_IT_3_SELECT;
-	 ret = HAL_I2C_Mem_Write(&hi2c3, GYR_ADDR, GYR_IT_MAP_ADDR, 1, word, 1, 100);
-	 if(ret != HAL_OK)
-	 {
-	  	strcpy((char*)word,"Error IT 3 SELECT GYR\n");
-	  	HAL_UART_Transmit(&huart2, word, strlen((char*)word), HAL_MAX_DELAY);
-	 }
-	 word[0] = ACC_IT_1_SELECT;
-	 ret = HAL_I2C_Mem_Write(&hi2c3, GYR_ADDR, ACC_IT_MAP_ADDR, 1, word, 1, 100);
-	 if(ret != HAL_OK)
-	 {
-	  	strcpy((char*)word,"Error IT 1 SELECT ACC\n");
-	  	HAL_UART_Transmit(&huart2, word, strlen((char*)word), HAL_MAX_DELAY);
-	 }
-
-}
-
-
-
-void selftest_accel(void)
-{
-	uint8_t word[80];
-	HAL_StatusTypeDef ret;
-	float* acc_value =0;
-	float diffrence_x, diffrence_y, diffrence_z;
-
-	//Set Selftest range
-	word[0] = 0x03;
-	ret = HAL_I2C_Mem_Write(&hi2c3, ACC_ADDR, ACC_RANGE_ADDR, 1, word, 1, 100);
-	if(ret != HAL_OK)
-	{
-		strcpy((char*)word,"Error setting Selftest Accelerometer range\n");
-		HAL_UART_Transmit(&huart2, word, strlen((char*)word), HAL_MAX_DELAY);
-	}
-	//Set Selftest filter
-	word[0] = 0xA7;
-	ret = HAL_I2C_Mem_Write(&hi2c3, ACC_ADDR, ACC_CONF_ADDR, 1, word, 1, 100);
-	if(ret != HAL_OK)
-	{
-		strcpy((char*)word,"Error setting Selftest Accelerometer filter\n");
-		HAL_UART_Transmit(&huart2, word, strlen((char*)word), HAL_MAX_DELAY);
-	}
-	HAL_Delay(10);
-	//Enable positive polarity selftest
-	word[0] = 0x0D;
-	ret = HAL_I2C_Mem_Write(&hi2c3, ACC_ADDR, ACC_SELF_TEST_ADDR, 1, word, 1, 100);
-	if(ret != HAL_OK)
-	{
-		strcpy((char*)word,"Error enabling Accelerometer Selftest\n");
-		HAL_UART_Transmit(&huart2, word, strlen((char*)word), HAL_MAX_DELAY);
-	}
-	HAL_Delay(75);
-
-	get_acc_data(acc_value, 24);
-	diffrence_x = *acc_value;
-	diffrence_y = *(acc_value+1);
-	diffrence_z = *(acc_value+2);
-
-	//Enable negative polarity selftest
-	word[0] = 0x09;
-	ret = HAL_I2C_Mem_Write(&hi2c3, ACC_ADDR, ACC_SELF_TEST_ADDR, 1, word, 1, 100);
-	if(ret != HAL_OK)
-	{
-		strcpy((char*)word,"Error enabling Accelerometer Selftest\n");
-		HAL_UART_Transmit(&huart2, word, strlen((char*)word), HAL_MAX_DELAY);
-	}
-	HAL_Delay(75);
-	get_acc_data(acc_value, 24);
-	diffrence_x = diffrence_x - *(acc_value);
-	diffrence_y = diffrence_y - *(acc_value+1);
-	diffrence_z = diffrence_z - *(acc_value+2);
-
-	//disable Selftest again
-	word[0] = 0x00;
-	ret = HAL_I2C_Mem_Write(&hi2c3, ACC_ADDR, ACC_SELF_TEST_ADDR, 1, word, 1, 100);
-	if(ret != HAL_OK)
-	{
-		strcpy((char*)word,"Error  disabling Accelerometer Selftest\n");
-		HAL_UART_Transmit(&huart2, word, strlen((char*)word), HAL_MAX_DELAY);
-	}
-
-	//set range to standard 3g
-	word[0] = 0x00;
-	ret = HAL_I2C_Mem_Write(&hi2c3, ACC_ADDR, ACC_RANGE_ADDR, 1, word, 1, 100);
-	if(ret != HAL_OK)
-	{
-		strcpy((char*)word,"Error setting Selftest Accelerometer range\n");
-		HAL_UART_Transmit(&huart2, word, strlen((char*)word), HAL_MAX_DELAY);
-	}
-
-	//print self test value
-	sprintf((char*) word,"Selftest X value: %d, Selftest Y value: %d, Selftest Z value: %d\n",(int) diffrence_x,(int) diffrence_y, (int) diffrence_z);
-	HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
-
 }
 /* USER CODE END 4 */
 

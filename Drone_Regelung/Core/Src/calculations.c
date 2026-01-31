@@ -2,7 +2,7 @@
  * Calculations.c
  *
  *  Created on: Dec 15, 2025
- *      Author: matth
+ *      Author: matthias Ellinger
  */
 
 
@@ -89,4 +89,17 @@ void motor_inputs(float InputRoll, float InputPitch, float InputYaw, int* MotorI
 	*(MotorInput+1) = (int)(pwm_scale*((+1)*InputPitch+(+1)*InputRoll+(-1)*InputYaw));
 	*(MotorInput+2) = (int)(pwm_scale*((-1)*InputPitch+(+1)*InputRoll+(+1)*InputYaw));
 	*(MotorInput+3) = (int)(pwm_scale*((-1)*InputPitch+(-1)*InputRoll+(-1)*InputYaw));
+}
+
+float yaw_cap(float yaw)
+{
+	  if(yaw > 180)
+	  {
+		  yaw -= 360;
+	  }
+	  if(yaw <= -180)
+	  {
+		  yaw += 360;
+	  }
+	  return yaw;
 }
