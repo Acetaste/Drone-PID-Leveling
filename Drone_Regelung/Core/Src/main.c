@@ -160,6 +160,7 @@ int main(void)
 
   configure_imu(&hi2c3, &huart2);
   timer_start(&timer_val,&htim1, &htim6, &htim7);
+  interpret_IR_Char('#', &desired_Pitch, &desired_Roll, &stop_flag, &huart2);
 
 
 
@@ -169,7 +170,11 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  interpret_flags(&IR_Character, &desired_Pitch, &desired_Roll, &stop_flag, &htim1, &huart2, &P_Pitch,&P_Roll, &P_Yaw);
+	  if(IR_Character != '\0')
+	  {
+		  interpret_IR_Char(IR_Character, &desired_Pitch, &desired_Roll, &stop_flag, &huart2);
+		  IR_Character = '\0';
+	  }
 	  if(get_data_flag ==1)
 	  {
 		  get_data_flag =0;
@@ -228,7 +233,7 @@ int main(void)
 		  Prev_Int_Yaw_Rate 	= PID_Output[1];
 
 		  motor_inputs( InputRoll, InputPitch, InputYaw, MotorInput);
-		  if (counter>= 99)
+		  if (counter>= 9999)
 		  {
 			  sprintf((char*) word,"Roll: %d Pitch: %d Yaw: %d\n",(int)KalmanRollAngle,(int)KalmanPitchAngle,(int) yaw);
 			  HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
@@ -644,7 +649,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 				IR_Character =decode(binary);
 				HAL_NVIC_EnableIRQ(TIM7_IRQn);
 
-				if( IR_Character == '1')
+				if( IR_Character == '*')
 				{
 					stop_flag = 1;
 					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1, 0);
