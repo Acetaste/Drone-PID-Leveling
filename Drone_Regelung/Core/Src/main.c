@@ -150,9 +150,6 @@ int main(void)
   float accel_pitch, accel_roll;
   int counter = 0;
   float InputPitch, InputRoll, InputYaw;
-  float P_Pitch = 1;
-  float P_Roll = 1;
-  float P_Yaw = 1;
   float desired_Pitch 	= 0;
   float desired_Roll	= 0;
   float yaw = 0;
@@ -161,6 +158,8 @@ int main(void)
   configure_imu(&hi2c3, &huart2);
   timer_start(&timer_val,&htim1, &htim6, &htim7);
   interpret_IR_Char('#', &desired_Pitch, &desired_Roll, &stop_flag, &huart2);
+
+
 
 
 
