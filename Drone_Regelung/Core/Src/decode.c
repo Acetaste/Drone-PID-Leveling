@@ -69,7 +69,7 @@ char decode(int binary)
 	return result;
 }
 
-void interpret_IR_Char(char IR_Character, float* desired_Pitch, float* desired_Roll, uint8_t* stop_flag, UART_HandleTypeDef* UART_handle)
+void interpret_IR_Char(char IR_Character, float* desired_Pitch, float* desired_Roll, uint8_t* stop_flag , uint8_t* save_data_flag, UART_HandleTypeDef* UART_handle)
 {
 	static char setting_string[4];
 	static uint8_t setting_string_index;
@@ -144,6 +144,7 @@ void interpret_IR_Char(char IR_Character, float* desired_Pitch, float* desired_R
 			sprintf((char*) uart_buffer,"Pitch set to: %d, Roll set to %d\n",(int) (*desired_Pitch),(int) (*desired_Roll));
 			HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 			*stop_flag = 0;
+			*save_data_flag =1;
 			break;
 
 		default:

@@ -36,8 +36,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define initial_uncertainty 2
-#define Looptime 0.002 //seconds between measurements
+#define Capture_Duration 2000 //milliseconds of capture time
+#define Loop_Time 2 //milliseconds between measurements
+#define Numb_Measurements Capture_Duration/Loop_Time
 
 #define P_outer 2
 #define I_outer 0
@@ -47,7 +48,7 @@
 #define I_const 3.5
 #define D_const 0.03
 
-#define desired_Yaw 0
+#define Desired_Yaw 0
 
 #define standard_acc_range  6
 /* USER CODE END PD */
@@ -86,13 +87,19 @@ static void MX_TIM7_Init(void);
 /* USER CODE BEGIN 0 */
 
 
-unsigned int binary =0;
+static unsigned int binary =0;
 static uint16_t timer_val;
+
 static uint8_t stop_flag= 1;
+static uint8_t get_data_flag = 0;
+static uint8_t save_data_flag = 0;
+
+static int16_t data_collection_buffer[4*Numb_Measurements];
+
 static uint8_t transmission = 0;
 static uint8_t data_index = 0;
-static uint8_t get_data_flag = 0;
 static char IR_Character = '\0';
+
 static float KalmanRollAngle =0, KalmanPitchAngle = 0;
 static float KalmanRollUncertainty = 2,KalmanPitchUncertainty = 2;
 
@@ -142,22 +149,24 @@ int main(void)
   MX_TIM6_Init();
   MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
+
   float KalmanOutput[2] = {0,0};
   int MotorInput[4] = {0,0,0,0};
-  static float PID_Output[2] = {0,0};
-  uint8_t word[50];
+  float PID_Output[2] = {0,0};
+
   float gyro_rate[3], acc_rate[3];
   float accel_pitch, accel_roll;
-  int counter = 0;
   float InputPitch, InputRoll, InputYaw;
+
   float desired_Pitch 	= 0;
   float desired_Roll	= 0;
   float yaw = 0;
+  int current_measurement_index = 0;
 
 
   configure_imu(&hi2c3, &huart2);
   timer_start(&timer_val,&htim1, &htim6, &htim7);
-  interpret_IR_Char('#', &desired_Pitch, &desired_Roll, &stop_flag, &huart2);
+  interpret_IR_Char('#', &desired_Pitch, &desired_Roll, &stop_flag, &save_data_flag, &huart2);
 
 
 
@@ -171,7 +180,7 @@ int main(void)
   {
 	  if(IR_Character != '\0')
 	  {
-		  interpret_IR_Char(IR_Character, &desired_Pitch, &desired_Roll, &stop_flag, &huart2);
+		  interpret_IR_Char(IR_Character, &desired_Pitch, &desired_Roll, &stop_flag, &save_data_flag, &huart2);
 		  IR_Character = '\0';
 	  }
 	  if(get_data_flag ==1)
@@ -182,7 +191,7 @@ int main(void)
 
 		  accel_pitch = acc_pitch((*(acc_rate+0)),(*(acc_rate+1)),(*(acc_rate+2)));
 		  accel_roll = acc_roll((*(acc_rate+0)),(*(acc_rate+1)),(*(acc_rate+2)));
-		  yaw += gyro_rate[2]* Looptime;
+		  yaw += gyro_rate[2]* Loop_Time/1000;
 		  yaw = yaw_cap(yaw);
 
 		  KalmanCalculation(KalmanRollAngle,KalmanRollUncertainty,gyro_rate[0], accel_roll, KalmanOutput);
@@ -193,9 +202,10 @@ int main(void)
 		  KalmanPitchUncertainty 	= KalmanOutput[1];
 
 
+
 		  Error_Roll_Ang 	= 	desired_Roll 		-KalmanRollAngle;
 		  Error_Pitch_Ang 	= 	desired_Pitch		-KalmanPitchAngle;
-		  Error_Yaw_Ang 	= 	desired_Yaw 		-yaw;
+		  Error_Yaw_Ang 	= 	Desired_Yaw 		-yaw;
 
 		  pid_equation(Error_Roll_Ang, Prev_Error_Roll_Ang, Prev_Int_Roll_Ang, P_outer, I_outer, D_outer, PID_Output);
 		  Prev_Error_Roll_Ang 	= Error_Roll_Ang;
@@ -232,20 +242,8 @@ int main(void)
 		  Prev_Int_Yaw_Rate 	= PID_Output[1];
 
 		  motor_inputs( InputRoll, InputPitch, InputYaw, MotorInput);
-		  if (counter>= 9999)
-		  {
-			  sprintf((char*) word,"Roll: %d Pitch: %d Yaw: %d\n",(int)KalmanRollAngle,(int)KalmanPitchAngle,(int) yaw);
-			  HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
-			  sprintf((char*) word,"InputRoll: %d,InputPitch: %d,InputYaw: %d\n",(int) InputRoll,(int) InputPitch,(int) InputYaw);
-			  HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);
-			  counter = 0;
-		  }
-		  else
-		  {
-		  		counter ++;
-		  }
-		 /*sprintf((char*) word,"Motor1: %d,Motor2: %d,Motor3: %d,Motor4: %d,\n",(int)(*(MotorInput+0)),(int)(*(MotorInput+1)),(int)(*(MotorInput+2)),(int)(*(MotorInput+3)));
-		  HAL_UART_Transmit(&huart2, word, strlen((char*)word), 100);*/
+		 /*sprintf((char*) uart_buffer,"Motor1: %d,Motor2: %d,Motor3: %d,Motor4: %d,\n",(int)(*(MotorInput+0)),(int)(*(MotorInput+1)),(int)(*(MotorInput+2)),(int)(*(MotorInput+3)));
+		  HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);*/
 
 		  if(stop_flag ==0)
 		  {
@@ -253,6 +251,23 @@ int main(void)
 			  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2, pwm_cap(*(MotorInput+1)));
 			  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3, pwm_cap(*(MotorInput+2)));
 			  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4, pwm_cap(*(MotorInput+3)));
+		  }
+		  if(save_data_flag == 1)
+		  {
+			  if(current_measurement_index == Numb_Measurements)
+			  {
+				  save_data_flag = 0;
+				  current_measurement_index = 0;
+			  }
+			  else
+			  {
+				  data_collection_buffer[(current_measurement_index*4)] 	= current_measurement_index;
+				  data_collection_buffer[(current_measurement_index*4)+1] 	= (int)KalmanPitchAngle/180*32768;
+				  data_collection_buffer[(current_measurement_index*4)+2] 	= (int)KalmanRollAngle/180*32768;
+				  data_collection_buffer[current_measurement_index+3] 		= (int)yaw/180*32768;
+				  current_measurement_index+=1;
+			  }
+
 		  }
 	  }
 
