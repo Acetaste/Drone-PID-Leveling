@@ -27,6 +27,7 @@
 #include "calculations.h"
 #include "startup.h"
 #include "read_sensor.h"
+#include "data_collection.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,7 +49,6 @@
 #define I_const 3.5
 #define D_const 0.03
 
-#define Desired_Yaw 0
 
 #define standard_acc_range  6
 /* USER CODE END PD */
@@ -87,29 +87,18 @@ static void MX_TIM7_Init(void);
 /* USER CODE BEGIN 0 */
 
 
-static unsigned int binary =0;
+
 static uint16_t timer_val;
 
-static uint8_t stop_flag= 1;
-static uint8_t get_data_flag = 0;
-static uint8_t save_data_flag = 0;
+static uint8_t 	stop_flag= 1;
+static uint8_t 	get_data_flag = 0;
+static uint8_t 	transmission = 0;
 
-static int16_t data_collection_buffer[4*Numb_Measurements];
+static int16_t 	data_collection_buffer[4*Numb_Measurements];
 
-static uint8_t transmission = 0;
-static uint8_t data_index = 0;
-static char IR_Character = '\0';
+static char 	ir_character = '\0';
 
-static float KalmanRollAngle =0, KalmanPitchAngle = 0;
-static float KalmanRollUncertainty = 2,KalmanPitchUncertainty = 2;
 
-static float desired_Roll_Rate= 0, desired_Pitch_Rate= 0 , desired_Yaw_Rate= 0;
-static float Error_Roll_Rate = 0, Error_Pitch_Rate= 0, Error_Yaw_Rate= 0;
-static float Prev_Error_Roll_Rate = 0, Prev_Error_Pitch_Rate = 0, Prev_Error_Yaw_Rate = 0;
-static float Prev_Int_Roll_Rate = 0, Prev_Int_Pitch_Rate = 0, Prev_Int_Yaw_Rate = 0;
-static float Error_Roll_Ang= 0, Error_Pitch_Ang= 0, Error_Yaw_Ang= 0;
-static float Prev_Error_Roll_Ang=0, Prev_Error_Pitch_Ang=0, Prev_Error_Yaw_Ang=0;
-static float Prev_Int_Roll_Ang=0, Prev_Int_Pitch_Ang=0, Prev_Int_Yaw_Ang=0;
 
 
 /* USER CODE END 0 */
@@ -150,26 +139,58 @@ int main(void)
   MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
 
-  float KalmanOutput[2] = {0,0};
-  int MotorInput[4] = {0,0,0,0};
-  float PID_Output[2] = {0,0};
+  uint8_t save_data_flag 				= 0;
+  uint8_t send_data_flag 				= 0;
+  uint8_t new_angle_flag 				= 0;
 
-  float gyro_rate[3], acc_rate[3];
+
+  int 	current_measurement_index 		= 0;
+
+  struct data_header_struct data_header = {
+		.desired_pitch 					= 0,
+		.desired_roll 					= 0,
+		.desired_yaw 					= 0,
+		.loop_time 						= Loop_Time,
+		.numb_measurements 				= Numb_Measurements};
+
+
+  float kalman_output[2] 				= {0,0};
+  int	motor_input[4] 					= {0,0,0,0};
+  float pid_output[2] 					= {0,0};
+
+  float kalman_roll_angle 				= 0;
+  float kalman_pitch_angle 				= 0;
+  float kalman_roll_uncertainty 		= 2;
+  float kalman_pitch_uncertainty 		= 2;
+
+
+  float gyro_rate[3] 					= {0,0,0};
+  float acc_rate[3] 					= {1,0,0};
+  float yaw 							= 0;
   float accel_pitch, accel_roll;
-  float InputPitch, InputRoll, InputYaw;
 
-  float desired_Pitch 	= 0;
-  float desired_Roll	= 0;
-  float yaw = 0;
-  int current_measurement_index = 0;
+
+  float desired_pitch 					= 0;
+  float desired_roll					= 0;
+  float desired_yaw						= 0;
+
+
+  float input_pitch, 					input_roll, 					input_yaw;
+
+  float desired_roll_rate		= 0, 	desired_pitch_rate		= 0, 	desired_yaw_rate	= 0;
+  float error_roll_rate			= 0, 	error_pitch_rate		= 0, 	error_yaw_rate		= 0;
+  float prev_error_roll_rate 	= 0, 	prev_error_pitch_rate 	= 0, 	prev_error_yaw_rate = 0;
+  float prev_int_roll_rate 		= 0, 	prev_int_pitch_rate 	= 0, 	prev_int_yaw_rate 	= 0;
+
+  float error_roll_ang			= 0, 	error_pitch_ang			= 0, 	error_yaw_ang		= 0;
+  float prev_error_roll_ang		= 0, 	prev_error_pitch_ang	= 0, 	prev_error_yaw_ang	= 0;
+  float prev_int_roll_ang		= 0, 	prev_int_pitch_ang		= 0, 	prev_int_yaw_ang	= 0;
+
 
 
   configure_imu(&hi2c3, &huart2);
   timer_start(&timer_val,&htim1, &htim6, &htim7);
-  interpret_IR_Char('#', &desired_Pitch, &desired_Roll, &stop_flag, &save_data_flag, &huart2);
-
-
-
+  interpret_IR_Char('#', &data_header, &stop_flag, &save_data_flag, &send_data_flag, &new_angle_flag, &huart2);
 
 
   /* USER CODE END 2 */
@@ -178,83 +199,118 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  if(IR_Character != '\0')
+
+	  if(ir_character != '\0')
 	  {
-		  interpret_IR_Char(IR_Character, &desired_Pitch, &desired_Roll, &stop_flag, &save_data_flag, &huart2);
-		  IR_Character = '\0';
+		  interpret_IR_Char(ir_character, &data_header, &stop_flag, &save_data_flag, &send_data_flag, &new_angle_flag, &huart2);
+		  ir_character = '\0';
 	  }
+
+
+	  // main function is run only when get_data_flag is periodically set from timer interrupt
 	  if(get_data_flag ==1)
 	  {
 		  get_data_flag =0;
-		  get_gyr_data(gyro_rate, &hi2c3, &huart2);
-		  get_acc_data(acc_rate, standard_acc_range, &hi2c3, &huart2);
 
+
+		  //update desired angle if changed through IR remote, new_data_flag set in interpret_IR_Char()
+		  if(new_angle_flag ==1)
+		  {
+			  new_angle_flag = 0;
+			  desired_pitch 	= (float) data_header.desired_pitch;
+			  desired_roll 		= (float) data_header.desired_roll;
+			  desired_yaw		= (float) data_header.desired_yaw;
+		  }
+
+		  //gettin data from imu
+		  /*get_gyr_data(gyro_rate, &hi2c3, &huart2);
+		  get_acc_data(acc_rate, standard_acc_range, &hi2c3, &huart2);
+		  */
+
+
+		  //calculating roll an pitch from accelerometer data
 		  accel_pitch = acc_pitch((*(acc_rate+0)),(*(acc_rate+1)),(*(acc_rate+2)));
 		  accel_roll = acc_roll((*(acc_rate+0)),(*(acc_rate+1)),(*(acc_rate+2)));
+
+
+
+		  //Combining accelerometer and gyroscope data with kalman filter and integrating yaw from gyroscope
+		  KalmanCalculation(kalman_roll_angle,kalman_roll_uncertainty,gyro_rate[0], accel_roll, kalman_output);
+		  kalman_roll_angle 			= kalman_output[0];
+		  kalman_roll_uncertainty 	= kalman_output[1];
+
+		  KalmanCalculation(kalman_pitch_angle,kalman_pitch_uncertainty,gyro_rate[1], accel_pitch, kalman_output);
+		  kalman_pitch_angle 			= kalman_output[0];
+		  kalman_pitch_uncertainty 	= kalman_output[1];
+
 		  yaw += gyro_rate[2]* Loop_Time/1000;
 		  yaw = yaw_cap(yaw);
 
-		  KalmanCalculation(KalmanRollAngle,KalmanRollUncertainty,gyro_rate[0], accel_roll, KalmanOutput);
-		  KalmanRollAngle 			= KalmanOutput[0];
-		  KalmanRollUncertainty 	= KalmanOutput[1];
-		  KalmanCalculation(KalmanPitchAngle,KalmanPitchUncertainty,gyro_rate[1], accel_pitch, KalmanOutput);
-		  KalmanPitchAngle 			= KalmanOutput[0];
-		  KalmanPitchUncertainty 	= KalmanOutput[1];
+
+		  //outer loop PID controllers
+		  error_roll_ang 	= 	desired_roll 		-kalman_roll_angle;
+		  error_pitch_ang 	= 	desired_pitch		-kalman_pitch_angle;
+		  error_yaw_ang 	= 	desired_yaw 		-yaw;
+
+		  pid_equation(error_roll_ang, prev_error_roll_ang, prev_int_roll_ang, P_outer, I_outer, D_outer, pid_output);
+		  prev_error_roll_ang 	= error_roll_ang;
+		  desired_roll_rate 	= pid_output[0];
+		  prev_int_roll_ang 	= pid_output[1];
+
+		  pid_equation(error_pitch_ang, prev_error_pitch_ang, prev_int_pitch_ang, P_outer, I_outer, D_outer, pid_output);
+		  prev_error_pitch_ang 	= error_pitch_ang;
+		  desired_pitch_rate 	= pid_output[0];
+		  prev_int_pitch_ang 	= pid_output[1];
+
+		  pid_equation(error_yaw_ang, prev_error_yaw_ang, prev_int_yaw_ang, P_outer, I_outer, D_outer, pid_output);
+		  prev_error_yaw_ang 	= error_yaw_ang;
+		  desired_yaw_rate		= pid_output[0];
+		  prev_int_yaw_ang		= pid_output[1];
 
 
 
-		  Error_Roll_Ang 	= 	desired_Roll 		-KalmanRollAngle;
-		  Error_Pitch_Ang 	= 	desired_Pitch		-KalmanPitchAngle;
-		  Error_Yaw_Ang 	= 	Desired_Yaw 		-yaw;
+		  //inner loop PID controllers
+		  error_roll_rate 	= desired_roll_rate 	- gyro_rate[0];
+		  error_pitch_rate 	= desired_pitch_rate 	- gyro_rate[1];
+		  error_yaw_rate 	= desired_yaw_rate 		- gyro_rate[2];
 
-		  pid_equation(Error_Roll_Ang, Prev_Error_Roll_Ang, Prev_Int_Roll_Ang, P_outer, I_outer, D_outer, PID_Output);
-		  Prev_Error_Roll_Ang 	= Error_Roll_Ang;
-		  desired_Roll_Rate 	= PID_Output[0];
-		  Prev_Int_Roll_Ang 	= PID_Output[1];
+		  pid_equation(error_roll_rate, prev_error_roll_rate, prev_int_roll_rate,  		0.3, 1, 0.001, pid_output);
+		  prev_error_roll_rate 	= error_roll_rate;
+		  input_roll 			= pid_output[0];
+		  prev_int_roll_rate 	= pid_output[1];
 
-		  pid_equation(Error_Pitch_Ang, Prev_Error_Pitch_Ang, Prev_Int_Pitch_Ang, P_outer, I_outer, D_outer, PID_Output);
-		  Prev_Error_Pitch_Ang 	= Error_Pitch_Ang;
-		  desired_Pitch_Rate 	= PID_Output[0];
-		  Prev_Int_Pitch_Ang 	= PID_Output[1];
+		  pid_equation(error_pitch_rate, prev_error_pitch_rate, prev_int_pitch_rate, 	0.2, 0.5, 0.001, pid_output);
+		  prev_error_pitch_rate = error_pitch_rate;
+		  input_pitch 			= pid_output[0];
+		  prev_int_pitch_rate 	= pid_output[1];
 
-		  pid_equation(Error_Yaw_Ang, Prev_Error_Yaw_Ang, Prev_Int_Yaw_Ang, P_outer, I_outer, D_outer, PID_Output);
-		  Prev_Error_Yaw_Ang 	= Error_Yaw_Ang;
-		  desired_Yaw_Rate		= PID_Output[0];
-		  Prev_Int_Yaw_Ang		= PID_Output[1];
+		  pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			1, 1, 0, pid_output);
+		  prev_error_yaw_rate	= error_yaw_rate;
+		  input_yaw	 			= pid_output[0];
+		  prev_int_yaw_rate 	= pid_output[1];
 
-		  Error_Roll_Rate 	= desired_Roll_Rate 	- gyro_rate[0];
-		  Error_Pitch_Rate 	= desired_Pitch_Rate 	- gyro_rate[1];
-		  Error_Yaw_Rate 	= desired_Yaw_Rate 		- gyro_rate[2];
 
-		  pid_equation(Error_Roll_Rate, Prev_Error_Roll_Rate, Prev_Int_Roll_Rate,  		0.3, 1, 0.001, PID_Output);
-		  Prev_Error_Roll_Rate 	= Error_Roll_Rate;
-		  InputRoll 			= PID_Output[0];
-		  Prev_Int_Roll_Rate 	= PID_Output[1];
 
-		  pid_equation(Error_Pitch_Rate, Prev_Error_Pitch_Rate, Prev_Int_Pitch_Rate, 	0.2, 0.5, 0.001, PID_Output);
-		  Prev_Error_Pitch_Rate = Error_Pitch_Rate;
-		  InputPitch 			= PID_Output[0];
-		  Prev_Int_Pitch_Rate 	= PID_Output[1];
+		  //translate the change in angles to motor inputs
+		  motor_inputs(input_roll, input_pitch, input_yaw, motor_input);
 
-		  pid_equation(Error_Yaw_Rate, Prev_Error_Yaw_Rate, Prev_Int_Yaw_Rate, 			1, 1, 0, PID_Output);
-		  Prev_Error_Yaw_Rate	= Error_Yaw_Rate;
-		  InputYaw	 			= PID_Output[0];
-		  Prev_Int_Yaw_Rate 	= PID_Output[1];
 
-		  motor_inputs( InputRoll, InputPitch, InputYaw, MotorInput);
-		 /*sprintf((char*) uart_buffer,"Motor1: %d,Motor2: %d,Motor3: %d,Motor4: %d,\n",(int)(*(MotorInput+0)),(int)(*(MotorInput+1)),(int)(*(MotorInput+2)),(int)(*(MotorInput+3)));
-		  HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);*/
 
+		  //set pwm channels
 		  if(stop_flag ==0)
 		  {
-			  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1, pwm_cap(*(MotorInput+0)));
-			  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2, pwm_cap(*(MotorInput+1)));
-			  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3, pwm_cap(*(MotorInput+2)));
-			  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4, pwm_cap(*(MotorInput+3)));
+			  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1, pwm_cap(*(motor_input+0)));
+			  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2, pwm_cap(*(motor_input+1)));
+			  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3, pwm_cap(*(motor_input+2)));
+			  __HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4, pwm_cap(*(motor_input+3)));
 		  }
+
+
+
+		  //save data to data collection buffer as Measurement Index/Pitch/Roll/Yaw
 		  if(save_data_flag == 1)
 		  {
-			  if(current_measurement_index == Numb_Measurements)
+			  if(current_measurement_index >= data_header.numb_measurements)
 			  {
 				  save_data_flag = 0;
 				  current_measurement_index = 0;
@@ -262,12 +318,21 @@ int main(void)
 			  else
 			  {
 				  data_collection_buffer[(current_measurement_index*4)] 	= current_measurement_index;
-				  data_collection_buffer[(current_measurement_index*4)+1] 	= (int)KalmanPitchAngle/180*32768;
-				  data_collection_buffer[(current_measurement_index*4)+2] 	= (int)KalmanRollAngle/180*32768;
-				  data_collection_buffer[current_measurement_index+3] 		= (int)yaw/180*32768;
+				  data_collection_buffer[(current_measurement_index*4)+1] 	= (int)kalman_pitch_angle/180*32768;
+				  data_collection_buffer[(current_measurement_index*4)+2] 	= (int)kalman_roll_angle/180*32768;
+				  data_collection_buffer[(current_measurement_index*4)+3] 	= (int)yaw/180*32768;
 				  current_measurement_index+=1;
 			  }
+		  }
 
+
+
+		  //send data header and data collection buffer over UART
+		  if(send_data_flag == 1)
+		  {
+			  send_data_flag = 0;
+			  send_header(&data_header, &huart2);
+			  send_collected_data(data_collection_buffer, data_header.numb_measurements, &huart2);
 		  }
 	  }
 
@@ -634,7 +699,9 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	int duration;
+	static unsigned int 	binary =0;
+	static uint8_t 			data_index = 0;
+	int 					duration;
 
 
 	if(GPIO_Pin == GPIO_PIN_1)
@@ -660,10 +727,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			if(data_index>=31)
 			{
 				transmission = 0;
-				IR_Character =decode(binary);
+				ir_character =decode(binary);
 				HAL_NVIC_EnableIRQ(TIM7_IRQn);
 
-				if( IR_Character == '*')
+				if( ir_character == '*')
 				{
 					stop_flag = 1;
 					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1, 0);

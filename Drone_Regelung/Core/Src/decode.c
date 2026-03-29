@@ -7,7 +7,6 @@
 #include "decode.h"
 
 #define max_numb(a, b) (((a) < (b)) ? (a) : (b))
-#define min_numb(a, b) (((a) > (b)) ? (a) : (b))
 
 char decode(int binary)
 {
@@ -69,7 +68,7 @@ char decode(int binary)
 	return result;
 }
 
-void interpret_IR_Char(char IR_Character, float* desired_Pitch, float* desired_Roll, uint8_t* stop_flag , uint8_t* save_data_flag, UART_HandleTypeDef* UART_handle)
+void interpret_IR_Char(char IR_Character, struct data_header_struct* data_header, uint8_t* stop_flag , uint8_t* save_data_flag,uint8_t* send_data_flag,uint8_t* new_angle_flag, UART_HandleTypeDef* UART_handle)
 {
 	static char setting_string[4];
 	static uint8_t setting_string_index;
@@ -82,15 +81,23 @@ void interpret_IR_Char(char IR_Character, float* desired_Pitch, float* desired_R
 
 		case('*'):
 			*stop_flag = 1;
+			*send_data_flag =1;
 			sprintf((char*) uart_buffer,"Stop flag set\n");
 			HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 			break;
 
 		case('#'):
 			strncpy(setting_string, clear_value, 4);
-			sprintf((char*) uart_buffer,"Cleared angle setting to %s\n", setting_string);
+			setting_string_index 				= 	0;
+			data_header->desired_pitch 			=	0;
+			data_header->desired_roll 			=	0;
+			data_header->desired_yaw 			=	0;
+			*new_angle_flag						= 	1;
+
+
+			sprintf((char*) uart_buffer,"Cleared setting string to %s and set Pitch:%d, Roll:%d, Yaw:%d\n", setting_string, data_header->desired_pitch, data_header->desired_roll, data_header->desired_yaw );
 			HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
-			setting_string_index = 0;
+
 			break;
 
 		case('L'):
@@ -120,31 +127,36 @@ void interpret_IR_Char(char IR_Character, float* desired_Pitch, float* desired_R
 		case('O'):
 			switch(setting_string[0])
 			{
-				case('L'):
-					*desired_Pitch = (float) (max_numb(atoi(&setting_string[1]),90));
-					break;
+					case('L'):
+							data_header->desired_pitch 	= 		max_numb(atoi(&setting_string[1]),90);
+							*new_angle_flag				= 		1;
+							break;
 
-				case('R'):
-					*desired_Pitch =(float) ((-1) *  min_numb(atoi(&setting_string[1]),-90));
-					break;
+					case('R'):
+							data_header->desired_pitch 	= (-1) *  max_numb(atoi(&setting_string[1]),90);
+							*new_angle_flag				= 		1;
+							break;
 
-				case('U'):
-					*desired_Roll =(float) (max_numb(atoi(&setting_string[1]),90));
-					break;
+					case('U'):
+							data_header->desired_roll 	= 		max_numb(atoi(&setting_string[1]),90);
+							*new_angle_flag				= 		1;
+							break;
 
-				case('D'):
-					*desired_Roll =(float) ((-1) *  min_numb(atoi(&setting_string[1]),-90));
-					break;
+					case('D'):
+							data_header->desired_roll 	= (-1) *  max_numb(atoi(&setting_string[1]),90);
+							*new_angle_flag				= 		1;
+							break;
 
 				default:
 					sprintf((char*) uart_buffer,"Not a valid string, needs to start with direction\n");
 					HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 			}
 
-			sprintf((char*) uart_buffer,"Pitch set to: %d, Roll set to %d\n",(int) (*desired_Pitch),(int) (*desired_Roll));
+			sprintf((char*) uart_buffer,"Pitch set to: %d, Roll set to %d\n",data_header->desired_pitch,data_header->desired_roll);
 			HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 			*stop_flag = 0;
 			*save_data_flag =1;
+			*new_angle_flag = 1;
 			break;
 
 		default:
