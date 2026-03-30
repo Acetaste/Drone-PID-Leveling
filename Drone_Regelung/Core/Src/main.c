@@ -318,9 +318,9 @@ int main(void)
 			  else
 			  {
 				  data_collection_buffer[(current_measurement_index*4)] 	= current_measurement_index;
-				  data_collection_buffer[(current_measurement_index*4)+1] 	= (int)kalman_pitch_angle/180*32768;
-				  data_collection_buffer[(current_measurement_index*4)+2] 	= (int)kalman_roll_angle/180*32768;
-				  data_collection_buffer[(current_measurement_index*4)+3] 	= (int)yaw/180*32768;
+				  data_collection_buffer[(current_measurement_index*4)+1] 	= rand()/*(int)kalman_pitch_angle/180*32768*/;
+				  data_collection_buffer[(current_measurement_index*4)+2] 	= rand()/*(int)kalman_roll_angle/180*32768*/;
+				  data_collection_buffer[(current_measurement_index*4)+3] 	= rand()/*(int)yaw/180*32768*/;
 				  current_measurement_index+=1;
 			  }
 		  }

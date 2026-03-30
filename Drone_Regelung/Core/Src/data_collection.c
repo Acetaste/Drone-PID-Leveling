@@ -22,7 +22,7 @@ void send_collected_data(int16_t* data_buff, int16_t numb_measurements, UART_Han
 	for(int i = 0;i < numb_measurements; i++)
 	{
 		uint8_t uart_buffer[50];
-		sprintf((char*) uart_buffer,"T%dP%dR%dY%d\n", data_buff[(4*i)], data_buff[(4*i)+1], data_buff[(4*i)+2], data_buff[(4*i)+3]);
+		sprintf((char*) uart_buffer,"N%dP%dR%dY%d\n", data_buff[(4*i)], data_buff[(4*i)+1], data_buff[(4*i)+2], data_buff[(4*i)+3]);
 		HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 	}
 }
