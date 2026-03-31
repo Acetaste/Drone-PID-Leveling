@@ -45,9 +45,9 @@ void pid_equation(float Error, float Prev_Error, float Prev_Int, float P, float 
 
 int pwm_cap(int pwm)
 {
-	if(pwm >= 300)
+	if(pwm >= 100)
 	{
-		pwm = 299;
+		pwm = 99;
 	}
 	if(pwm < 0)
 		{

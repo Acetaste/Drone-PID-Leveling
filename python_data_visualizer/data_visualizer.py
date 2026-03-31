@@ -63,6 +63,18 @@ def visualize_callback():
     yawplot.step([TimeList[0], TimeList[-1]],[0,int(StrYaw.get())], "r")
     
     
+    pitchplot.set_title(label = "Pitch")
+    pitchplot.set_ylabel("Angle (°)")
+    
+    rollplot.set_title("Roll")
+    rollplot.set_ylabel("Angle (°)")
+    
+    yawplot.set_title("Yaw")
+    yawplot.set_xlabel("Time (ms)") 
+    yawplot.set_ylabel("Angle (°)")
+
+    
+    
     canvas.draw()
     
     
@@ -178,12 +190,10 @@ figure = Figure(dpi = 100)
 
 pitchplot = figure.add_subplot(3,1,1)
 pitchplot.set_title(label = "Pitch")
-
 pitchplot.set_ylabel("Angle (°)")
 
 rollplot = figure.add_subplot(3,1,2)
 rollplot.set_title("Roll")
-
 rollplot.set_ylabel("Angle (°)")
 
 yawplot = figure.add_subplot(3,1,3)
