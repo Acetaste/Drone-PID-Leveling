@@ -2,3 +2,5 @@
 **/.settings
 *.mxproject
 *.launch
+**/stm32-drone-rev1
+**/stm32-drone-rev1.zip
