@@ -11,8 +11,8 @@
 #include "calculations.h"
 #include <math.h>
 
-#define Integration_cap 400
-#define Looptime 0.002 //seconds between measurements
+#define Integration_cap 120
+#define Looptime 0.004 //seconds between measurements
 #define gyro_error 4
 #define acc_error 2
 
@@ -26,7 +26,7 @@ void pid_equation(float Error, float Prev_Error, float Prev_Int, float P, float 
 	}
 	else if(Iterm <(-Integration_cap))
 	{
-		Iterm = Integration_cap;
+		Iterm = -Integration_cap;
 	}
 	float Dterm = D*(Error + Prev_Error)/Looptime;
 	float PIDOut = Pterm+ Iterm + Dterm;
@@ -36,7 +36,7 @@ void pid_equation(float Error, float Prev_Error, float Prev_Int, float P, float 
 		}
 		else if(PIDOut <(-Integration_cap))
 		{
-			PIDOut = Integration_cap;
+			PIDOut = -Integration_cap;
 		}
 	*PID_Output = PIDOut;
 	*(PID_Output+1) = Iterm;
@@ -45,27 +45,27 @@ void pid_equation(float Error, float Prev_Error, float Prev_Int, float P, float 
 
 int pwm_cap(int pwm)
 {
-	if(pwm >= 100)
+	if(pwm >= 120)
 	{
-		pwm = 99;
+		pwm = 119;
 	}
 	if(pwm < 0)
-		{
-			pwm = 0;
-		}
+	{
+		pwm = 0;
+	}
 	return pwm;
-}
-
-float acc_roll(float acc_x,float acc_y, float acc_z)
-{
-	float acc_roll = 180*atan((double)(acc_y/sqrtf((acc_x*acc_x)+(acc_z*acc_z))))/M_PI;
-	return acc_roll;
 }
 
 float acc_pitch(float acc_x,float acc_y, float acc_z)
 {
-	float acc_pitch = 180*atan((double)(-acc_x/sqrtf((acc_y*acc_y)+(acc_z*acc_z))))/M_PI;
+	float acc_pitch = 180*atanf((acc_y/sqrtf((acc_x*acc_x)+(acc_z*acc_z))))/M_PI;
 	return acc_pitch;
+}
+
+float acc_roll(float acc_x,float acc_y, float acc_z)
+{
+	float acc_roll = 180*atanf((-acc_x/sqrtf((acc_y*acc_y)+(acc_z*acc_z))))/M_PI;
+	return acc_roll;
 }
 
 
@@ -80,15 +80,26 @@ void KalmanCalculation(float State, float Uncertainty, float Input, float Measur
 	KalmanOutput[1] = Uncertainty;
 }
 
+void body_rate_to_fixed_rate(float* body_rate,float degree_phi, float degree_theta, float * degree_output)
+{
+	float rad_theta 	= degree_theta/180 * M_PI;
+	float rad_phi 		= degree_phi/180 * M_PI;
+	//roll
+	*(degree_output+0) = 180/M_PI*((*(body_rate+0)) +sinf(rad_phi)*tanf(rad_theta)*(*(body_rate+1)) + cosf(rad_phi)*tanf(rad_theta)*(*(body_rate+2)));
+	//pitch
+	*(degree_output+1) = 180/M_PI*(cosf(rad_phi)*(*(body_rate+1)) - sinf(rad_phi)*(*(body_rate+2)));
+	//yaw
+	*(degree_output+2) = 180/M_PI*(sinf(rad_phi)/cosf(rad_theta)*(*(body_rate+1)) + cosf(rad_phi)/cosf(rad_theta)*(*(body_rate+2)));
+}
 
 
-void motor_inputs(float InputRoll, float InputPitch, float InputYaw, int* MotorInput)
+void motor_inputs(float InputPitch, float InputRoll, float InputYaw, int* MotorInput)
 {
 	float pwm_scale = 1;
-	*(MotorInput+0) = (int)(pwm_scale*((+1)*InputPitch+(-1)*InputRoll+(+1)*InputYaw));
-	*(MotorInput+1) = (int)(pwm_scale*((+1)*InputPitch+(+1)*InputRoll+(-1)*InputYaw));
-	*(MotorInput+2) = (int)(pwm_scale*((-1)*InputPitch+(+1)*InputRoll+(+1)*InputYaw));
-	*(MotorInput+3) = (int)(pwm_scale*((-1)*InputPitch+(-1)*InputRoll+(-1)*InputYaw));
+	*(MotorInput+0) = (int)(pwm_scale*((-1)*InputPitch+(+1)*InputRoll+(-1)*InputYaw));
+	*(MotorInput+1) = (int)(pwm_scale*((+1)*InputPitch+(+1)*InputRoll+(+1)*InputYaw));
+	*(MotorInput+2) = (int)(pwm_scale*((+1)*InputPitch+(-1)*InputRoll+(-1)*InputYaw));
+	*(MotorInput+3) = (int)(pwm_scale*((-1)*InputPitch+(-1)*InputRoll+(+1)*InputYaw));
 }
 
 float yaw_cap(float yaw)

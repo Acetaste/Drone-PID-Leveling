@@ -36,16 +36,18 @@ def read_callback():
     splitData = Data.splitlines()
     splitData = list(filter(None, splitData))
     
-    NumbList.clear
-    PitchList.clear
-    RollList.clear
-    YawList.clear
+    NumbList.clear()
+    PitchList.clear()
+    RollList.clear()
+    YawList.clear()
+
     for point in splitData:
         pointData = re.findall(r'-?\d+', point)
-        NumbList.append(int(pointData[0]))
-        PitchList.append(int(pointData[1])*180/32768)
-        RollList.append(int(pointData[2])*180/32768)
-        YawList.append(int(pointData[3])*180/32768)
+        if len(pointData) == 4:
+            NumbList.append(int(pointData[0]))
+            PitchList.append(int(pointData[1])*180/32768)
+            RollList.append(int(pointData[2])*180/32768)
+            YawList.append(int(pointData[3])*180/32768)
     
 
 def visualize_callback():
@@ -55,6 +57,7 @@ def visualize_callback():
     rollplot.cla()
     yawplot.cla()
     
+
     pitchplot.plot(TimeList,PitchList, "b")   
     pitchplot.step([TimeList[0], TimeList[-1]],[0,int(StrPitch.get())], "r")
     rollplot.plot(TimeList,RollList, "b")   

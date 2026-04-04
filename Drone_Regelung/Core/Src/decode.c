@@ -128,22 +128,22 @@ void interpret_IR_Char(char IR_Character, struct data_header_struct* data_header
 			switch(setting_string[0])
 			{
 					case('L'):
-							data_header->desired_pitch 	= 		max_numb(atoi(&setting_string[1]),90);
-							*new_angle_flag				= 		1;
-							break;
-
-					case('R'):
-							data_header->desired_pitch 	= (-1) *  max_numb(atoi(&setting_string[1]),90);
-							*new_angle_flag				= 		1;
-							break;
-
-					case('U'):
 							data_header->desired_roll 	= 		max_numb(atoi(&setting_string[1]),90);
 							*new_angle_flag				= 		1;
 							break;
 
-					case('D'):
+					case('R'):
 							data_header->desired_roll 	= (-1) *  max_numb(atoi(&setting_string[1]),90);
+							*new_angle_flag				= 		1;
+							break;
+
+					case('U'):
+							data_header->desired_pitch 	= 		max_numb(atoi(&setting_string[1]),90);
+							*new_angle_flag				= 		1;
+							break;
+
+					case('D'):
+							data_header->desired_pitch 	= (-1) *  max_numb(atoi(&setting_string[1]),90);
 							*new_angle_flag				= 		1;
 							break;
 
@@ -243,6 +243,7 @@ void interpret_IR_char_tuning(char* IR_Character, float* desired_Pitch, float* d
 				*P_Pitch 	= 1;
 				*P_Roll 	= 1;
 				*P_Yaw 		= 1;
+				*stop_flag = 1;
 				sprintf((char*) uart_buffer,"P Pitch: %d, P Roll: %d, P Yaw: %d\n",(int) *P_Pitch, (int) *P_Roll,(int) *P_Yaw);
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
@@ -250,10 +251,10 @@ void interpret_IR_char_tuning(char* IR_Character, float* desired_Pitch, float* d
 		case('2'):
 				*IR_Character = '\0';
 				*stop_flag = 1;
-				__HAL_TIM_SET_COMPARE(pwm_timer_handle,TIM_CHANNEL_1, 30);
-				__HAL_TIM_SET_COMPARE(pwm_timer_handle,TIM_CHANNEL_2, 30);
-				__HAL_TIM_SET_COMPARE(pwm_timer_handle,TIM_CHANNEL_3, 30);
-				__HAL_TIM_SET_COMPARE(pwm_timer_handle,TIM_CHANNEL_4, 30);
+				__HAL_TIM_SET_COMPARE(pwm_timer_handle,TIM_CHANNEL_1, 10);
+				__HAL_TIM_SET_COMPARE(pwm_timer_handle,TIM_CHANNEL_2, 10);
+				__HAL_TIM_SET_COMPARE(pwm_timer_handle,TIM_CHANNEL_3, 10);
+				__HAL_TIM_SET_COMPARE(pwm_timer_handle,TIM_CHANNEL_4, 10);
 				break;
 
 		case('4'):
