@@ -61,32 +61,6 @@ void configure_imu(I2C_HandleTypeDef* I2C_handle ,UART_HandleTypeDef* UART_handl
 	  	HAL_UART_Transmit(UART_handle, word, strlen((char*)word), HAL_MAX_DELAY);
 	 }
 
-
-	  	  //Setup Interrupt for Gyroscope
-	 word[0] = GYR_IT_POWER_ON;
-	 ret = HAL_I2C_Mem_Write(I2C_handle, GYR_ADDR, GYR_IT_CNTRL_ADDR, 1, word, 1, 100);
-	 if(ret != HAL_OK)
-	 {
-		strcpy((char*)word,"Error IT ON GYR\n");
-	  	HAL_UART_Transmit(UART_handle, word, strlen((char*)word), HAL_MAX_DELAY);
-	 }
-
-	  	  // Setup IT PIN 1 and 3 respectively
-	 word[0] = GYR_IT_3_SELECT;
-	 ret = HAL_I2C_Mem_Write(I2C_handle, GYR_ADDR, GYR_IT_MAP_ADDR, 1, word, 1, 100);
-	 if(ret != HAL_OK)
-	 {
-	  	strcpy((char*)word,"Error IT 3 SELECT GYR\n");
-	  	HAL_UART_Transmit(UART_handle, word, strlen((char*)word), HAL_MAX_DELAY);
-	 }
-	 word[0] = ACC_IT_1_SELECT;
-	 ret = HAL_I2C_Mem_Write(I2C_handle, GYR_ADDR, ACC_IT_MAP_ADDR, 1, word, 1, 100);
-	 if(ret != HAL_OK)
-	 {
-	  	strcpy((char*)word,"Error IT 1 SELECT ACC\n");
-	  	HAL_UART_Transmit(UART_handle, word, strlen((char*)word), HAL_MAX_DELAY);
-	 }
-
 }
 
 

@@ -259,42 +259,42 @@ void interpret_IR_char_tuning(char* IR_Character, float* desired_Pitch, float* d
 
 		case('4'):
 				*IR_Character = '\0';
-				*P_Pitch += 1;
+				*P_Pitch += 0.1;
 				sprintf((char*) uart_buffer,"P_Pitch: %d\n",(int) *P_Pitch);
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
 		case('5'):
 				*IR_Character = '\0';
-				*P_Roll += 1;
+				*P_Roll += 0.1;
 				sprintf((char*) uart_buffer,"P_Roll: %d\n",(int) *P_Roll);
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
 		case('6'):
 				*IR_Character = '\0';
-				*P_Yaw += 1;
+				*P_Yaw += 0.1;
 				sprintf((char*) uart_buffer,"P_Yaw: %d\n",(int) *P_Yaw);
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
 		case('7'):
 				*IR_Character = '\0';
-				*P_Pitch -= 1;
+				*P_Pitch -= 0.1;
 				sprintf((char*) uart_buffer,"P_Pitch: %d\n",(int) *P_Pitch);
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
 		case('8'):
 				*IR_Character = '\0';
-				*P_Roll -= 1;
+				*P_Roll -= 0.1;
 				sprintf((char*) uart_buffer,"P_Roll: %d\n",(int) *P_Roll);
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
 		case('9'):
 				*IR_Character = '\0';
-				*P_Yaw -= 1;
+				*P_Yaw -= 0.1;
 				sprintf((char*) uart_buffer,"P_Yaw: %d\n",(int) *P_Yaw);
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;

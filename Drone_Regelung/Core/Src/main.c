@@ -38,8 +38,10 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define Capture_Duration 4000 //milliseconds of capture time
-#define Loop_Time 2 //milliseconds between measurements
+#define Loop_Time 4 //milliseconds between measurements
 #define Numb_Measurements Capture_Duration/Loop_Time
+
+
 
 #define P_outer 3
 #define I_outer 0
@@ -48,7 +50,7 @@
 
 
 
-#define standard_acc_range  6
+#define standard_acc_range  3
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -89,7 +91,7 @@ static void MX_TIM7_Init(void);
 static uint16_t timer_val;
 
 static uint8_t 	stop_flag= 1;
-static uint8_t 	get_data_flag = 0;
+static uint8_t 	loop_increment_flag = 0;
 static uint8_t 	transmission = 0;
 
 static int16_t 	data_collection_buffer[4*Numb_Measurements];
@@ -164,7 +166,7 @@ int main(void)
 
   float gyro_body_rate[3] 				= {0,0,0};
   float gyro_rate[3] 					= {0,0,0};
-  float acc_rate[3] 					= {1,0,0};
+  float acc_rate[3] 					= {0,0,0};
   float yaw 							= 0;
   float accel_pitch, accel_roll;
 
@@ -187,9 +189,9 @@ int main(void)
 
   uint8_t uart_buffer[50];
 
-  float p_pitch =1;
-  float p_roll =1;
-  float p_yaw = 1;
+  float p_pitch =0;
+  float p_roll =0;
+  float p_yaw = 0;
   int counter = 0;
 
   configure_imu(&hi2c3, &huart2);
@@ -215,10 +217,10 @@ int main(void)
 	  }
 
 
-	  // main function is run only when get_data_flag is periodically set from timer interrupt
-	  if(get_data_flag ==1)
+	  // main function is run only when loop_increment_flag is periodically set from timer interrupt
+	  if(loop_increment_flag ==1)
 	  {
-		  get_data_flag =0;
+		  loop_increment_flag =0;
 
 
 		  //update desired angle if changed through IR remote, new_data_flag set in interpret_IR_Char()
@@ -241,17 +243,17 @@ int main(void)
 		  accel_roll = acc_roll((*(acc_rate+0)),(*(acc_rate+1)),(*(acc_rate+2)));
 
 		  //converting body gyrorate to fixed gyro rate
-		  body_rate_to_fixed_rate(gyro_body_rate, kalman_roll_angle, kalman_pitch_angle, gyro_rate);
+		  body_rate_to_fixed_rate(gyro_body_rate, kalman_roll_angle,kalman_pitch_angle, gyro_rate);
 
-		  sprintf((char*) uart_buffer," Roll: %d, Pitch: %d, Yaw: %d\n",(int) gyro_rate[0], (int) gyro_rate[1],(int) gyro_rate[2]);
-		  HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
+
+
 		  //Combining accelerometer and gyroscope data with kalman filter and integrating yaw from gyroscope
 
-		  KalmanCalculation(kalman_pitch_angle,kalman_pitch_uncertainty,gyro_rate[0], accel_pitch, kalman_output);
+		  KalmanCalculation(kalman_pitch_angle,kalman_pitch_uncertainty,gyro_rate[1], accel_pitch, kalman_output);
 		  kalman_pitch_angle 		= kalman_output[0];
 		  kalman_pitch_uncertainty 	= kalman_output[1];
 
-		  KalmanCalculation(kalman_roll_angle,kalman_roll_uncertainty,gyro_rate[1], accel_roll, kalman_output);
+		  KalmanCalculation(kalman_roll_angle,kalman_roll_uncertainty,gyro_rate[0], accel_roll, kalman_output);
 		  kalman_roll_angle 		= kalman_output[0];
 		  kalman_roll_uncertainty 	= kalman_output[1];
 
@@ -259,6 +261,24 @@ int main(void)
 
 		  yaw += gyro_rate[2]* Loop_Time/1000;
 		  yaw = yaw_cap(yaw);
+
+
+		  if(counter == 100)
+		  		  		  {
+			  	  	  	  	  sprintf((char*) uart_buffer," accel_roll: %d, accel_Pitch:%d\n",(int) acc_rate[0]	, (int) accel_pitch);
+	  			  		  	  HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
+		  			  	  	  sprintf((char*) uart_buffer," aRoll: %d, aPitch:%d, aYaw: %d\n",(int) kalman_roll_angle	, (int) kalman_pitch_angle,(int) yaw);
+		  			  		  HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
+		  		  			  sprintf((char*) uart_buffer," bRoll: %d, bPitch: %d, bYaw: %d\n",(int) gyro_body_rate[0], (int) gyro_body_rate[1],(int) gyro_body_rate[2]);
+		  		  			  HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
+		  		  			  sprintf((char*) uart_buffer," fRoll: %d, fPitch: %d, fYaw: %d\n\n",(int) gyro_rate[0], (int) gyro_rate[1],(int) gyro_rate[2]);
+		  		  			  HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
+		  		  			  counter =0 ;
+		  		  		  }
+		  		  		  else
+		  		  		  {
+		  		  			  counter++;
+		  		  		  }
 
 
 		  //outer loop PID controllers
@@ -301,12 +321,12 @@ int main(void)
 		  input_pitch 			= pid_output[0];
 		  prev_int_pitch_rate 	= pid_output[1];
 
-		  pid_equation(error_roll_rate, prev_error_roll_rate, prev_int_roll_rate,  		p_roll, 0, 0, pid_output);
+		  pid_equation(error_roll_rate, prev_error_roll_rate, prev_int_roll_rate,  		0.2, 0, 0, pid_output);
 		  prev_error_roll_rate 	= error_roll_rate;
 		  input_roll 			= pid_output[0];
 		  prev_int_roll_rate 	= pid_output[1];
 
-		  pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			0.2, 1, 0.01, pid_output);
+		  pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			0.2, 0.5, 0, pid_output);
 		  prev_error_yaw_rate	= error_yaw_rate;
 		  input_yaw	 			= pid_output[0];
 		  prev_int_yaw_rate 	= pid_output[1];
@@ -735,7 +755,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		{
 			duration = duration + 65536;
 		}
-		get_data_flag=0;
+		loop_increment_flag=0;
 
 		if(transmission == 1 )
 		{
@@ -770,8 +790,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 				transmission = 1;
 				binary = 0;
 				data_index = 0;
-				binary = 0;
-				get_data_flag= 0;
+				loop_increment_flag= 0;
 				HAL_NVIC_DisableIRQ(TIM7_IRQn);
 			}
 		}
@@ -787,7 +806,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	{
 		if(transmission== 0 )
 		{
-			get_data_flag= 1;
+			loop_increment_flag= 1;
 		}
 
 	}
