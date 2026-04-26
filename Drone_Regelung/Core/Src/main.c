@@ -50,7 +50,7 @@
 
 
 
-#define standard_acc_range  3
+#define standard_acc_range  6
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -187,12 +187,12 @@ int main(void)
   float prev_error_roll_ang		= 0, 	prev_error_pitch_ang	= 0, 	prev_error_yaw_ang	= 0;
   float prev_int_roll_ang		= 0, 	prev_int_pitch_ang		= 0, 	prev_int_yaw_ang	= 0;
 
-  uint8_t uart_buffer[50];
+  uint8_t uart_buffer[150];
 
-  float p_pitch =0;
-  float p_roll =0;
-  float p_yaw = 0;
-  int counter = 0;
+  float p_pitch 						= 0;
+  float p_roll 							= 0;
+  float p_yaw 							= 0;
+  int counter 							= 0;
 
   configure_imu(&hi2c3, &huart2);
   timer_start(&timer_val,&htim1, &htim6, &htim7);
@@ -243,7 +243,7 @@ int main(void)
 		  accel_roll = acc_roll((*(acc_rate+0)),(*(acc_rate+1)),(*(acc_rate+2)));
 
 		  //converting body gyrorate to fixed gyro rate
-		  body_rate_to_fixed_rate(gyro_body_rate, kalman_roll_angle,kalman_pitch_angle, gyro_rate);
+		  body_rate_to_fixed_rate(gyro_body_rate, accel_roll,accel_pitch, gyro_rate);
 
 
 
@@ -265,13 +265,13 @@ int main(void)
 
 		  if(counter == 100)
 		  		  		  {
-			  	  	  	  	  sprintf((char*) uart_buffer," accel_roll: %d, accel_Pitch:%d\n",(int) acc_rate[0]	, (int) accel_pitch);
+			  	  	  	  	  sprintf((char*) uart_buffer," accel_roll: %d, accel_Pitch:%d\n",(int) accel_roll	, (int) accel_pitch);
 	  			  		  	  HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
-		  			  	  	  sprintf((char*) uart_buffer," aRoll: %d, aPitch:%d, aYaw: %d\n",(int) kalman_roll_angle	, (int) kalman_pitch_angle,(int) yaw);
+		  			  	  	  sprintf((char*) uart_buffer," kalmanRoll: %d, kalmanPitch:%d, kalmanYaw: %d\n",(int) kalman_roll_angle	, (int) kalman_pitch_angle,(int) yaw);
 		  			  		  HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
-		  		  			  sprintf((char*) uart_buffer," bRoll: %d, bPitch: %d, bYaw: %d\n",(int) gyro_body_rate[0], (int) gyro_body_rate[1],(int) gyro_body_rate[2]);
+		  		  			  sprintf((char*) uart_buffer," body rate Roll: %d, body rate Pitch: %d, body rate Yaw: %d\n",(int) gyro_body_rate[0], (int) gyro_body_rate[1],(int) gyro_body_rate[2]);
 		  		  			  HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
-		  		  			  sprintf((char*) uart_buffer," fRoll: %d, fPitch: %d, fYaw: %d\n\n",(int) gyro_rate[0], (int) gyro_rate[1],(int) gyro_rate[2]);
+		  		  			  sprintf((char*) uart_buffer," fixed rate Roll: %d, fixed rate Pitch: %d, fixed rate Yaw: %d\n\n",(int) gyro_rate[0], (int) gyro_rate[1],(int) gyro_rate[2]);
 		  		  			  HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
 		  		  			  counter =0 ;
 		  		  		  }
@@ -321,7 +321,7 @@ int main(void)
 		  input_pitch 			= pid_output[0];
 		  prev_int_pitch_rate 	= pid_output[1];
 
-		  pid_equation(error_roll_rate, prev_error_roll_rate, prev_int_roll_rate,  		0.2, 0, 0, pid_output);
+		  pid_equation(error_roll_rate, prev_error_roll_rate, prev_int_roll_rate,  		p_roll, 0, 0, pid_output);
 		  prev_error_roll_rate 	= error_roll_rate;
 		  input_roll 			= pid_output[0];
 		  prev_int_roll_rate 	= pid_output[1];

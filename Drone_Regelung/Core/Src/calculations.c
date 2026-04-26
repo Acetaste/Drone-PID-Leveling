@@ -54,13 +54,43 @@ int pwm_cap(int pwm)
 float acc_roll(float acc_x,float acc_y, float acc_z)
 {
 	float acc_roll = rad_to_degree*(atanf(acc_y/sqrtf((acc_x*acc_x)+(acc_z*acc_z))));
-	return acc_roll;
+
+	if(acc_z >=0)
+	{
+		return acc_roll;
+	}
+	else
+	{
+		if(acc_y >= 0)
+		{
+			return 180 - acc_roll;
+		}
+		else
+		{
+			return (-180) - acc_roll;
+		}
+	}
+
 }
 
 float acc_pitch(float acc_x,float acc_y, float acc_z)
 {
 	float acc_pitch = rad_to_degree*(atanf(-acc_x/sqrtf((acc_y*acc_y)+(acc_z*acc_z))));
-	return acc_pitch;
+	if(acc_z >=0)
+	{
+		return acc_pitch;
+	}
+	else
+	{
+		if((-1*acc_x) >= 0)
+		{
+			return 180 - acc_pitch;
+		}
+		else
+		{
+			return (-180) - acc_pitch;
+		}
+	}
 }
 
 

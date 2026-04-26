@@ -83,6 +83,7 @@ void get_acc_data(float* acc_rate,  int acc_range, I2C_HandleTypeDef* I2C_handle
 				twoByte = byteMSB<<8 |byteLSB;
 				*(acc_rate+i)= twoByte*acc_range*1000/32768;
 			}
+
 		}
 	}
 }
