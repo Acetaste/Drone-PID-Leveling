@@ -38,7 +38,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define Capture_Duration 4000 //milliseconds of capture time
-#define Loop_Time 4 //milliseconds between measurements
+#define Loop_Time 5 //milliseconds between measurements
 #define Numb_Measurements Capture_Duration/Loop_Time
 
 
@@ -218,7 +218,7 @@ int main(void)
 
 
 	  // main function is run only when loop_increment_flag is periodically set from timer interrupt
-	  if(loop_increment_flag ==1)
+	  if(0 ==1)
 	  {
 		  loop_increment_flag =0;
 
@@ -316,7 +316,7 @@ int main(void)
 
 
 
-		  pid_equation(error_pitch_rate, prev_error_pitch_rate, prev_int_pitch_rate, 	p_pitch, 0, 0, pid_output);
+		  pid_equation(error_pitch_rate, prev_error_pitch_rate, prev_int_pitch_rate, 	1, 0, 0, pid_output);
 		  prev_error_pitch_rate = error_pitch_rate;
 		  input_pitch 			= pid_output[0];
 		  prev_int_pitch_rate 	= pid_output[1];
@@ -326,7 +326,7 @@ int main(void)
 		  input_roll 			= pid_output[0];
 		  prev_int_roll_rate 	= pid_output[1];
 
-		  pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			0.2, 0.5, 0, pid_output);
+		  pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			p_yaw, 0, 0, pid_output);
 		  prev_error_yaw_rate	= error_yaw_rate;
 		  input_yaw	 			= pid_output[0];
 		  prev_int_yaw_rate 	= pid_output[1];
@@ -635,7 +635,7 @@ static void MX_TIM7_Init(void)
   htim7.Instance = TIM7;
   htim7.Init.Prescaler = 32-1;
   htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim7.Init.Period = 4000-1;
+  htim7.Init.Period = 5000-1;
   htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
   {
@@ -711,7 +711,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : PA1 */
   GPIO_InitStruct.Pin = GPIO_PIN_1;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : LD3_Pin */
@@ -745,6 +745,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	static unsigned int 	binary =0;
 	static uint8_t 			data_index = 0;
 	int 					duration;
+	uint8_t					uart_buffer[50];
 
 
 	if(GPIO_Pin == GPIO_PIN_1)
@@ -760,7 +761,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		if(transmission == 1 )
 		{
 
-			if(duration>1700 && data_index != 0)
+			if(duration>1600 && data_index != 0)
 			{
 				binary |= (1 << data_index);
 
@@ -772,6 +773,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 				transmission = 0;
 				ir_character =decode(binary);
 				HAL_NVIC_EnableIRQ(TIM7_IRQn);
+				sprintf((char*) uart_buffer," 1: \n");
+				HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
 
 				if( ir_character == '*')
 				{
@@ -792,6 +795,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 				data_index = 0;
 				loop_increment_flag= 0;
 				HAL_NVIC_DisableIRQ(TIM7_IRQn);
+
 			}
 		}
 
@@ -804,9 +808,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 	if(htim == &htim7)
 	{
-		if(transmission== 0 )
+		if(transmission == 0 )
 		{
-			loop_increment_flag= 1;
+			loop_increment_flag= 0;
 		}
 
 	}

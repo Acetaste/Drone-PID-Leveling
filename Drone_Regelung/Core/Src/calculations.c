@@ -12,7 +12,7 @@
 #include <math.h>
 
 #define Integration_cap 120
-#define Looptime 0.004 //seconds between measurements
+#define Looptime 0.005 //seconds between measurements
 #define gyro_error 4
 #define acc_error 2
 #define rad_to_degree 57.29578f

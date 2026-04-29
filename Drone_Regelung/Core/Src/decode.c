@@ -301,6 +301,8 @@ void interpret_IR_char_tuning(char* IR_Character, float* desired_Pitch, float* d
 		case('O'):
 				*IR_Character = '\0';
 				*stop_flag = 0;
+				sprintf((char*) uart_buffer,"stop flag cleared\n");
+				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 	}
 }
