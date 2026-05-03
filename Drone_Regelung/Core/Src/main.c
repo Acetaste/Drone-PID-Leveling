@@ -28,6 +28,8 @@
 #include "startup.h"
 #include "read_sensor.h"
 #include "data_collection.h"
+
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -37,14 +39,13 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define Capture_Duration 4000 //milliseconds of capture time
-#define Loop_Time 5 //milliseconds between measurements
-#define Numb_Measurements Capture_Duration/Loop_Time
+#define Loop_Time 2.5 //milliseconds between measurements
+#define Numb_Measurements 2000
 
 
 
 #define P_outer 3
-#define I_outer 0
+#define I_outer 0.01
 #define D_outer 0
 
 
@@ -90,13 +91,16 @@ static void MX_TIM7_Init(void);
 
 static uint16_t timer_val;
 
-static uint8_t 	stop_flag= 1;
+static uint8_t 	stop_flag 			= 1;
 static uint8_t 	loop_increment_flag = 0;
-static uint8_t 	transmission = 0;
+static uint8_t	new_char_flag 		= 0;
+static uint8_t 	transmission_flag 	= 0;
+static unsigned int ir_binary		= 0;
 
 static int16_t 	data_collection_buffer[4*Numb_Measurements];
 
-static char 	ir_character = '\0';
+
+
 
 
 
@@ -139,10 +143,10 @@ int main(void)
   MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
 
-  uint8_t save_data_flag 				= 0;
-  uint8_t send_data_flag 				= 0;
-  uint8_t new_angle_flag 				= 0;
-
+  uint8_t 	save_data_flag 				= 0;
+  uint8_t 	send_data_flag 				= 0;
+  uint8_t 	new_angle_flag 				= 0;
+  char		ir_character 				= '\0';
 
   int 	current_measurement_index 		= 0;
 
@@ -188,15 +192,18 @@ int main(void)
   float prev_int_roll_ang		= 0, 	prev_int_pitch_ang		= 0, 	prev_int_yaw_ang	= 0;
 
   uint8_t uart_buffer[150];
-
-  float p_pitch 						= 0;
-  float p_roll 							= 0;
-  float p_yaw 							= 0;
   int counter 							= 0;
+
+  float p_pitch 						= 0.15;
+  float p_roll 							= 0.1;
+  float p_yaw 							= 6;
+
+
 
   configure_imu(&hi2c3, &huart2);
   timer_start(&timer_val,&htim1, &htim6, &htim7);
-  interpret_IR_Char('#', &data_header, &stop_flag, &save_data_flag, &send_data_flag, &new_angle_flag, &huart2);
+
+  interpret_IR_Char('#', &data_header, &stop_flag, &save_data_flag, &send_data_flag, &new_angle_flag, &huart2, htim1);
 
 
 
@@ -209,18 +216,24 @@ int main(void)
   while (1)
   {
 
-	  if(ir_character != '\0')
+	  if(new_char_flag == 1)
 	  {
-		  //interpret_IR_Char(ir_character, &data_header, &stop_flag, &save_data_flag, &send_data_flag, &new_angle_flag, &huart2);
-		  interpret_IR_char_tuning(&ir_character, &desired_pitch, &desired_roll, &stop_flag, &htim1, &huart2, &p_pitch, &p_roll, &p_yaw);
+		  new_char_flag = 0;
+		  ir_character =decode(ir_binary);
+
+		  //interpret_IR_Char(ir_character, &data_header, &stop_flag, &save_data_flag, &send_data_flag, &new_angle_flag, &huart2, htim1);
+		  interpret_IR_char_tuning(ir_character, &desired_pitch, &desired_roll, &stop_flag, htim1, &huart2, &p_pitch, &p_roll, &p_yaw);
 		  ir_character = '\0';
 	  }
 
 
+
+
+
 	  // main function is run only when loop_increment_flag is periodically set from timer interrupt
-	  if(0 ==1)
+	  if(loop_increment_flag == 1)
 	  {
-		  loop_increment_flag =0;
+		  loop_increment_flag = 0;
 
 
 		  //update desired angle if changed through IR remote, new_data_flag set in interpret_IR_Char()
@@ -263,22 +276,7 @@ int main(void)
 		  yaw = yaw_cap(yaw);
 
 
-		  if(counter == 100)
-		  		  		  {
-			  	  	  	  	  sprintf((char*) uart_buffer," accel_roll: %d, accel_Pitch:%d\n",(int) accel_roll	, (int) accel_pitch);
-	  			  		  	  HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
-		  			  	  	  sprintf((char*) uart_buffer," kalmanRoll: %d, kalmanPitch:%d, kalmanYaw: %d\n",(int) kalman_roll_angle	, (int) kalman_pitch_angle,(int) yaw);
-		  			  		  HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
-		  		  			  sprintf((char*) uart_buffer," body rate Roll: %d, body rate Pitch: %d, body rate Yaw: %d\n",(int) gyro_body_rate[0], (int) gyro_body_rate[1],(int) gyro_body_rate[2]);
-		  		  			  HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
-		  		  			  sprintf((char*) uart_buffer," fixed rate Roll: %d, fixed rate Pitch: %d, fixed rate Yaw: %d\n\n",(int) gyro_rate[0], (int) gyro_rate[1],(int) gyro_rate[2]);
-		  		  			  HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
-		  		  			  counter =0 ;
-		  		  		  }
-		  		  		  else
-		  		  		  {
-		  		  			  counter++;
-		  		  		  }
+
 
 
 		  //outer loop PID controllers
@@ -310,26 +308,30 @@ int main(void)
 
 
 		  //inner loop PID controllers
-		  error_pitch_rate 	= desired_pitch_rate 	- gyro_rate[0];
-		  error_roll_rate 	= desired_roll_rate 	- gyro_rate[1];
+		  error_roll_rate 	= desired_roll_rate 	- gyro_rate[0];
+		  error_pitch_rate 	= desired_pitch_rate 	- gyro_rate[1];
 		  error_yaw_rate 	= desired_yaw_rate 		- gyro_rate[2];
 
 
 
-		  pid_equation(error_pitch_rate, prev_error_pitch_rate, prev_int_pitch_rate, 	1, 0, 0, pid_output);
+		  //pid_equation(error_pitch_rate, prev_error_pitch_rate, prev_int_pitch_rate, 	0.084, 0.21, 0.0084, pid_output);
+		  pid_equation(error_pitch_rate, prev_error_pitch_rate, prev_int_pitch_rate, 	p_roll, 0, 0, pid_output);
 		  prev_error_pitch_rate = error_pitch_rate;
 		  input_pitch 			= pid_output[0];
 		  prev_int_pitch_rate 	= pid_output[1];
 
-		  pid_equation(error_roll_rate, prev_error_roll_rate, prev_int_roll_rate,  		p_roll, 0, 0, pid_output);
+		  //pid_equation(error_roll_rate, prev_error_roll_rate, prev_int_roll_rate,  		0.09, 0.0145, 0.00139, pid_output);
+		  pid_equation(error_roll_rate, prev_error_roll_rate, prev_int_roll_rate,  		0, 0, 0, pid_output);
 		  prev_error_roll_rate 	= error_roll_rate;
 		  input_roll 			= pid_output[0];
 		  prev_int_roll_rate 	= pid_output[1];
 
-		  pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			p_yaw, 0, 0, pid_output);
+		  //pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			1, 0.5, 0, pid_output);
+		  pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			0, 0, 0, pid_output);
 		  prev_error_yaw_rate	= error_yaw_rate;
 		  input_yaw	 			= pid_output[0];
 		  prev_int_yaw_rate 	= pid_output[1];
+
 
 
 
@@ -377,6 +379,19 @@ int main(void)
 			  send_header(&data_header, &huart2);
 			  send_collected_data(data_collection_buffer, data_header.numb_measurements, &huart2);
 		  }
+
+
+		 	  if(counter == 100)
+		 	  {
+		 	  	sprintf((char*) uart_buffer,"kalmanRoll: %d, kalmanPitch:%d, kalmanYaw: %d\n",(int) kalman_roll_angle	, (int) kalman_pitch_angle,(int) yaw);
+		 	  	HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
+		 	  	counter =0 ;
+		 	  }
+		 	  else
+		 	  {
+		 		  counter++;
+		 	  }
+
 	  }
 
 
@@ -635,7 +650,7 @@ static void MX_TIM7_Init(void)
   htim7.Instance = TIM7;
   htim7.Init.Prescaler = 32-1;
   htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim7.Init.Period = 5000-1;
+  htim7.Init.Period = 2500-1;
   htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
   {
@@ -745,52 +760,41 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	static unsigned int 	binary =0;
 	static uint8_t 			data_index = 0;
 	int 					duration;
-	uint8_t					uart_buffer[50];
+
 
 
 	if(GPIO_Pin == GPIO_PIN_1)
 	{
+		//get elapsed time since last interrupt
 		duration = (__HAL_TIM_GET_COUNTER(&htim6)-timer_val);
 		timer_val = __HAL_TIM_GET_COUNTER(&htim6);
 		if(duration <0)
 		{
 			duration = duration + 65536;
 		}
-		loop_increment_flag=0;
 
-		if(transmission == 1 )
+
+		if(transmission_flag == 1 )
 		{
-
 			if(duration>1600 && data_index != 0)
 			{
 				binary |= (1 << data_index);
-
 			}
 
 			data_index++;
 			if(data_index>=31)
 			{
-				transmission = 0;
-				ir_character =decode(binary);
+				transmission_flag = 0;
+				new_char_flag = 1;
+				ir_binary = binary;
 				HAL_NVIC_EnableIRQ(TIM7_IRQn);
-				sprintf((char*) uart_buffer," 1: \n");
-				HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
-
-				if( ir_character == '*')
-				{
-					stop_flag = 1;
-					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_1, 0);
-					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_2, 0);
-					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_3, 0);
-					__HAL_TIM_SET_COMPARE(&htim1,TIM_CHANNEL_4, 0);
-				}
 			}
 		}
-		if(transmission== 0)
+		if(transmission_flag== 0)
 		{
 			if( (5500>duration)  && (duration> 4500))
 			{
-				transmission = 1;
+				transmission_flag = 1;
 				binary = 0;
 				data_index = 0;
 				loop_increment_flag= 0;
@@ -808,9 +812,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 	if(htim == &htim7)
 	{
-		if(transmission == 0 )
+		if(transmission_flag == 0 )
 		{
-			loop_increment_flag= 0;
+			loop_increment_flag= 1;
 		}
 
 	}

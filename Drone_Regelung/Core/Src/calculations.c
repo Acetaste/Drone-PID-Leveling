@@ -11,8 +11,8 @@
 #include "calculations.h"
 #include <math.h>
 
-#define Integration_cap 120
-#define Looptime 0.005 //seconds between measurements
+#define Cap 120
+#define Loop_Time 2.5/1000 //seconds between measurements
 #define gyro_error 4
 #define acc_error 2
 #define rad_to_degree 57.29578f
@@ -21,16 +21,16 @@
 void pid_equation(float Error, float Prev_Error, float Prev_Int, float P, float I, float D, float* PID_Output)
 {
 	float Pterm = Error * P;
-	float Iterm = Prev_Int + (I *(Error + Prev_Error)*Looptime)/2;
-	if (Iterm > Integration_cap)
+	float Iterm = Prev_Int + (I *(Error + Prev_Error)*Loop_Time)/2;
+	if (Iterm > Cap)
 	{
-		Iterm = Integration_cap;
+		Iterm = Cap;
 	}
-	else if(Iterm <(-Integration_cap))
+	else if(Iterm <(-Cap))
 	{
-		Iterm = -Integration_cap;
+		Iterm = -Cap;
 	}
-	float Dterm = D*(Error - Prev_Error)/Looptime;
+	float Dterm = D*(Error - Prev_Error)/Loop_Time;
 	float PIDOut = Pterm+ Iterm + Dterm;
 
 	*PID_Output = PIDOut;
@@ -40,9 +40,9 @@ void pid_equation(float Error, float Prev_Error, float Prev_Int, float P, float 
 
 int pwm_cap(int pwm)
 {
-	if(pwm >= 120)
+	if(pwm > Cap)
 	{
-		pwm = 119;
+		pwm = Cap;
 	}
 	if(pwm < 0)
 	{
@@ -96,8 +96,8 @@ float acc_pitch(float acc_x,float acc_y, float acc_z)
 
 void KalmanCalculation(float State, float Uncertainty, float Input, float Measurement, float* KalmanOutput)
 {
-	State = State + Looptime*Input;
-	Uncertainty = Uncertainty + Looptime*Looptime*gyro_error*gyro_error;
+	State = State + Loop_Time*Input;
+	Uncertainty = Uncertainty + Loop_Time*Loop_Time*gyro_error*gyro_error;
 	float Gain = Uncertainty/(Uncertainty+acc_error*acc_error);
 	State= State + Gain*(Measurement-State);
 	Uncertainty = (1-Gain)*Uncertainty;

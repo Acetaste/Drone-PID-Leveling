@@ -5,8 +5,15 @@
  *      Author: matthias Ellinger
  */
 #include "decode.h"
+#include "hardware_control.h"
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
 
 #define max_numb(a, b) (((a) < (b)) ? (a) : (b))
+#define P_Value_Increase 0.01
 
 char decode(int binary)
 {
@@ -68,7 +75,7 @@ char decode(int binary)
 	return result;
 }
 
-void interpret_IR_Char(char IR_Character, struct data_header_struct* data_header, uint8_t* stop_flag , uint8_t* save_data_flag,uint8_t* send_data_flag,uint8_t* new_angle_flag, UART_HandleTypeDef* UART_handle)
+void interpret_IR_Char(char IR_Character, struct data_header_struct* data_header, uint8_t* stop_flag , uint8_t* save_data_flag,uint8_t* send_data_flag,uint8_t* new_angle_flag, UART_HandleTypeDef* UART_handle, TIM_HandleTypeDef pwm_timer_handle)
 {
 	static char setting_string[4];
 	static uint8_t setting_string_index;
@@ -82,6 +89,7 @@ void interpret_IR_Char(char IR_Character, struct data_header_struct* data_header
 		case('*'):
 			*stop_flag = 1;
 			*send_data_flag =1;
+			set_all_motor_pwm(0, pwm_timer_handle);
 			sprintf((char*) uart_buffer,"Stop flag set\n");
 			HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 			break;
@@ -197,109 +205,121 @@ void interpret_IR_Char(char IR_Character, struct data_header_struct* data_header
 
 }
 
-void interpret_IR_char_tuning(char* IR_Character, float* desired_Pitch, float* desired_Roll, uint8_t* stop_flag, TIM_HandleTypeDef* pwm_timer_handle, UART_HandleTypeDef* UART_handle, float* P_Pitch,float* P_Roll, float* P_Yaw)
+void interpret_IR_char_tuning(char IR_Character, float* desired_Pitch, float* desired_Roll, uint8_t* stop_flag, TIM_HandleTypeDef pwm_timer_handle, UART_HandleTypeDef* UART_handle, float* P_Pitch,float* P_Roll, float* P_Yaw)
 {
+	static int pwm_value = 0;
 	uint8_t uart_buffer[50];
-	switch(*IR_Character)
+	switch(IR_Character)
 	{
 		case('L'):
-				*IR_Character = '\0';
+
 				*desired_Pitch += 5;
 			  	sprintf((char*) uart_buffer,"Desired Pitch: %d\n",(int) *desired_Pitch);
 			  	HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 			  	break;
 
 		case('R'):
-				*IR_Character = '\0';
+
 				*desired_Pitch -= 5;
 				sprintf((char*) uart_buffer,"Desired Pitch: %d\n",(int) *desired_Pitch);
 			  	HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 			  	break;
 
 		case('U'):
-				*IR_Character = '\0';
+
 				*desired_Roll += 5;
 				sprintf((char*) uart_buffer,"Desired Roll: %d\n",(int) *desired_Roll);
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
 		case('D'):
-				*IR_Character = '\0';
+
 				*desired_Roll -= 5;
 				sprintf((char*) uart_buffer,"Desired Roll: %d\n",(int) *desired_Roll);
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
 		case('#'):
-				*IR_Character = '\0';
-				*desired_Roll = 0;
-				*desired_Pitch = 0;
+
+				*desired_Roll 	= 0;
+				*desired_Pitch 	= 0;
+				*P_Pitch 		= 0;
+				*P_Roll 		= 0;
+				*P_Yaw 			= 0;
 				sprintf((char*) uart_buffer,"Desired Roll: %d, Desired Pitch: %d\n",(int) *desired_Roll, (int) *desired_Pitch);
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
 		case('*'):
-				*IR_Character = '\0';
-				*P_Pitch 	= 1;
-				*P_Roll 	= 1;
-				*P_Yaw 		= 1;
+
 				*stop_flag = 1;
-				sprintf((char*) uart_buffer,"P Pitch: %d, P Roll: %d, P Yaw: %d\n",(int) *P_Pitch, (int) *P_Roll,(int) *P_Yaw);
+				set_all_motor_pwm(0, pwm_timer_handle);
+				sprintf((char*) uart_buffer,"P Pitch: %d.%d, P Roll: %d.%d, P Yaw: %d.%d\n",(int) *P_Pitch,(int) (*P_Pitch*10)%10,  (int) *P_Roll, (int) (*P_Roll*10)%10, (int) *P_Yaw, (int) (*P_Yaw*10)%10);
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
-		case('2'):
-				*IR_Character = '\0';
+		case('1'):
+
 				*stop_flag = 1;
-				__HAL_TIM_SET_COMPARE(pwm_timer_handle,TIM_CHANNEL_1, 10);
-				__HAL_TIM_SET_COMPARE(pwm_timer_handle,TIM_CHANNEL_2, 10);
-				__HAL_TIM_SET_COMPARE(pwm_timer_handle,TIM_CHANNEL_3, 10);
-				__HAL_TIM_SET_COMPARE(pwm_timer_handle,TIM_CHANNEL_4, 10);
+				pwm_value-= 1;
+				set_all_motor_pwm(pwm_value, pwm_timer_handle);
+				break;
+
+		case('2'):
+
+				*stop_flag = 1;
+				set_all_motor_pwm(10, pwm_timer_handle);
+				break;
+
+		case('3'):
+				*stop_flag = 1;
+				pwm_value+= 1;
+				set_all_motor_pwm(pwm_value, pwm_timer_handle);
 				break;
 
 		case('4'):
-				*IR_Character = '\0';
-				*P_Pitch += 0.1;
-				sprintf((char*) uart_buffer,"P_Pitch: %d\n",(int) *P_Pitch);
+
+				*P_Pitch += P_Value_Increase;
+				sprintf((char*) uart_buffer,"P_Pitch: %d.%d\n",(int) *P_Pitch, (int) (*P_Pitch*10)%10);
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
 		case('5'):
-				*IR_Character = '\0';
-				*P_Roll += 0.1;
-				sprintf((char*) uart_buffer,"P_Roll: %d\n",(int) *P_Roll);
+
+				*P_Roll += P_Value_Increase;
+				sprintf((char*) uart_buffer,"P_Roll: %d.%d\n",(int) *P_Roll, (int) (*P_Roll*10)%10);
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
 		case('6'):
-				*IR_Character = '\0';
-				*P_Yaw += 0.1;
-				sprintf((char*) uart_buffer,"P_Yaw: %d\n",(int) *P_Yaw);
+
+				*P_Yaw += P_Value_Increase;
+				sprintf((char*) uart_buffer,"P_Yaw: %d.%d\n",(int) *P_Yaw, (int) (*P_Yaw*10)%10);
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
 		case('7'):
-				*IR_Character = '\0';
-				*P_Pitch -= 0.1;
-				sprintf((char*) uart_buffer,"P_Pitch: %d\n",(int) *P_Pitch);
+
+				*P_Pitch -= P_Value_Increase;
+				sprintf((char*) uart_buffer,"P_Pitch: %d.%d\n",(int) *P_Pitch, (int) (*P_Pitch*10)%10);
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
 		case('8'):
-				*IR_Character = '\0';
-				*P_Roll -= 0.1;
-				sprintf((char*) uart_buffer,"P_Roll: %d\n",(int) *P_Roll);
+
+				*P_Roll -= P_Value_Increase;
+				sprintf((char*) uart_buffer,"P_Roll: %d.%d\n",(int) *P_Roll, (int) (*P_Roll*10)%10);
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
 		case('9'):
-				*IR_Character = '\0';
-				*P_Yaw -= 0.1;
-				sprintf((char*) uart_buffer,"P_Yaw: %d\n",(int) *P_Yaw);
+
+				*P_Yaw -= P_Value_Increase;
+				sprintf((char*) uart_buffer,"P_Yaw: %d.%d\n",(int) *P_Yaw, (int) (*P_Yaw*10)%10);
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 		case('O'):
-				*IR_Character = '\0';
+
 				*stop_flag = 0;
 				sprintf((char*) uart_buffer,"stop flag cleared\n");
 				HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
