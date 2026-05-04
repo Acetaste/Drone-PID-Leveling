@@ -4,29 +4,12 @@
  *  Created on: 31.1.12, 2026
  *      Author: matthias ellinger
  */
-#define GYR_ADDR (0x69u <<1)
-#define ACC_ADDR (0x18u <<1)
 
-#define ACC_PWR_CONF_ADDR 0x7Cu
-#define ACC_PWR_CNTRL_ADDR 0x7Du
-
-#define ACC_RANGE_ADDR 0x41
-#define ACC_CONF_ADDR 0x40
-#define ACC_SELF_TEST_ADDR 0x6D
-
-#define ACC_IT_MAP_ADDR 0x58u
-#define GYR_IT_CNTRL_ADDR 0x15u
-#define GYR_IT_MAP_ADDR 0x18u
-
-#define ACC_POWER_ON 0x04u
-#define ACC_ACTIVE_MODE 0x00u
-#define ACC_IT_1_SELECT 0x04u
-#define GYR_IT_POWER_ON 0x80u
-#define GYR_IT_3_SELECT 0x01u
 
 
 #include "startup.h"
 #include "read_sensor.h"
+#include "user_constants.h"
 
 
 void timer_start(uint16_t* timer_val, TIM_HandleTypeDef* pwm_timer_handle, TIM_HandleTypeDef* IR_remote_duration_timer_handle, TIM_HandleTypeDef* flag_setting_timer_handle )

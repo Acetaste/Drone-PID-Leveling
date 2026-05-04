@@ -6,10 +6,13 @@
  */
 
 
-#define FLASH_REGION_START  0x0803C000
-#define FLASH_NUMB_PAGES (FLASH_END-FLASH_REGION_START)/FLASH_PAGE_SIZE
+#include <ctype.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "data_collection.h"
+#include "user_constants.h"
+
 
 
 void send_header(struct data_header_struct* data_header, UART_HandleTypeDef* UART_handle)

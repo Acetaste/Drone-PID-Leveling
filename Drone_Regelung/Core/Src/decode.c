@@ -4,16 +4,20 @@
  *  Created on: Nov 2, 2025
  *      Author: matthias Ellinger
  */
-#include "decode.h"
-#include "hardware_control.h"
+
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
-#define max_numb(a, b) (((a) < (b)) ? (a) : (b))
-#define P_Value_Increase 1
+#include "decode.h"
+#include "user_constants.h"
+#include "hardware_control.h"
+
+
+
 
 char decode(int binary)
 {
@@ -137,7 +141,7 @@ void interpret_IR_Char(char IR_Character, struct data_header_struct* data_header
 			switch(setting_string[0])
 			{
 					case('L'):
-							data_header->desired_roll 	= 		max_numb(atoi(&setting_string[1]),90);
+							data_header->desired_pitch  	= 		max_numb(atoi(&setting_string[1]),90);
 							*new_angle_flag				= 		1;
 							*stop_flag 					=		0;
 							*save_data_flag 			=		1;
@@ -145,7 +149,7 @@ void interpret_IR_Char(char IR_Character, struct data_header_struct* data_header
 							break;
 
 					case('R'):
-							data_header->desired_roll 	= (-1) *  max_numb(atoi(&setting_string[1]),90);
+							data_header->desired_pitch 	= (-1) *  max_numb(atoi(&setting_string[1]),90);
 							*new_angle_flag				= 		1;
 							*stop_flag 					=		0;
 							*save_data_flag 			=		1;
@@ -153,14 +157,14 @@ void interpret_IR_Char(char IR_Character, struct data_header_struct* data_header
 							break;
 
 					case('U'):
-							data_header->desired_pitch 	= 		max_numb(atoi(&setting_string[1]),90);
+							data_header->desired_roll 	= 		max_numb(atoi(&setting_string[1]),90);
 							*new_angle_flag				= 		1;
 							*stop_flag 					=		0;
 							*save_data_flag 			=		1;
 							break;
 
 					case('D'):
-							data_header->desired_pitch 	= (-1) *  max_numb(atoi(&setting_string[1]),90);
+							data_header->desired_roll 	= (-1) *  max_numb(atoi(&setting_string[1]),90);
 							*new_angle_flag				= 		1;
 							*stop_flag 					=		0;
 							*save_data_flag 			=		1;

@@ -9,8 +9,7 @@
 #define INC_READ_SENSOR_H_
 
 #include "stm32l4xx_hal.h"
-#include <stdio.h>
-#include <string.h>
+
 
 void get_gyr_data(float* gyro_rate, I2C_HandleTypeDef* I2C_handle ,UART_HandleTypeDef* UART_handle);
 void get_acc_data(float* acc_rate,  int acc_range, I2C_HandleTypeDef* I2C_handle ,UART_HandleTypeDef* UART_handle);

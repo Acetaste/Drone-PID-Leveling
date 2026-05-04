@@ -7,14 +7,12 @@
 
 
 
+#include <stdio.h>
+#include <string.h>
 
 #include "read_sensor.h"
+#include "user_constants.h"
 
-#define GYR_ADDR (0x69u <<1)
-#define ACC_ADDR (0x18u <<1)
-#define GYR_X_ADDR 0x02u
-#define ACC_X_ADDR 0x12u
-#define gyro_range  2000
 
 
 void get_gyr_data(float* gyro_rate, I2C_HandleTypeDef* I2C_handle ,UART_HandleTypeDef* UART_handle)

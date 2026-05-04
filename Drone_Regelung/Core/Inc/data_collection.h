@@ -9,9 +9,7 @@
 #define INC_DATA_COLLECTION_H_
 
 #include "stm32l4xx_hal.h"
-#include <ctype.h>
-#include <stdio.h>
-#include <string.h>
+
 
 struct data_header_struct
 {
