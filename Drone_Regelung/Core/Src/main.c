@@ -39,9 +39,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define Loop_Time 2.5 //milliseconds between measurements
+#define Loop_Time 3 //milliseconds between measurements
 #define Numb_Measurements 2000
-
+#define FLASH_REGION_START  0x0803C000
 
 
 #define P_outer 3
@@ -97,7 +97,7 @@ static uint8_t	new_char_flag 		= 0;
 static uint8_t 	transmission_flag 	= 0;
 static unsigned int ir_binary		= 0;
 
-static int16_t 	data_collection_buffer[4*Numb_Measurements];
+static data_collection_struct data_collection_buffer[Numb_Measurements];
 
 
 
@@ -144,6 +144,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   uint8_t 	save_data_flag 				= 0;
+  uint8_t	save_to_flash_flag			= 0;
   uint8_t 	send_data_flag 				= 0;
   uint8_t 	new_angle_flag 				= 0;
   char		ir_character 				= '\0';
@@ -194,16 +195,17 @@ int main(void)
   uint8_t uart_buffer[150];
   int counter 							= 0;
 
-  float p_pitch 						= 0.15;
-  float p_roll 							= 0.1;
-  float p_yaw 							= 6;
-
+  /*
+  float p_pitch 						= 0;
+  float p_roll 							= 5;
+  float p_yaw 							= 0;
+  */
 
 
   configure_imu(&hi2c3, &huart2);
   timer_start(&timer_val,&htim1, &htim6, &htim7);
 
-  interpret_IR_Char('#', &data_header, &stop_flag, &save_data_flag, &send_data_flag, &new_angle_flag, &huart2, htim1);
+  interpret_IR_Char('#', &data_header, &stop_flag, &save_data_flag, &send_data_flag, &new_angle_flag,&save_to_flash_flag, &huart2, htim1);
 
 
 
@@ -221,8 +223,8 @@ int main(void)
 		  new_char_flag = 0;
 		  ir_character =decode(ir_binary);
 
-		  //interpret_IR_Char(ir_character, &data_header, &stop_flag, &save_data_flag, &send_data_flag, &new_angle_flag, &huart2, htim1);
-		  interpret_IR_char_tuning(ir_character, &desired_pitch, &desired_roll, &stop_flag, htim1, &huart2, &p_pitch, &p_roll, &p_yaw);
+		  interpret_IR_Char(ir_character, &data_header, &stop_flag, &save_data_flag, &send_data_flag, &new_angle_flag,&save_to_flash_flag, &huart2, htim1);
+		  //interpret_IR_char_tuning(ir_character, &desired_pitch, &desired_roll, &stop_flag, htim1, &huart2, &p_pitch, &p_roll, &p_yaw);
 		  ir_character = '\0';
 	  }
 
@@ -315,19 +317,19 @@ int main(void)
 
 
 		  //pid_equation(error_pitch_rate, prev_error_pitch_rate, prev_int_pitch_rate, 	0.084, 0.21, 0.0084, pid_output);
-		  pid_equation(error_pitch_rate, prev_error_pitch_rate, prev_int_pitch_rate, 	p_roll, 0, 0, pid_output);
+		  pid_equation(error_pitch_rate, prev_error_pitch_rate, prev_int_pitch_rate, 	0.6, 2, 0.1, pid_output);
 		  prev_error_pitch_rate = error_pitch_rate;
 		  input_pitch 			= pid_output[0];
 		  prev_int_pitch_rate 	= pid_output[1];
 
 		  //pid_equation(error_roll_rate, prev_error_roll_rate, prev_int_roll_rate,  		0.09, 0.0145, 0.00139, pid_output);
-		  pid_equation(error_roll_rate, prev_error_roll_rate, prev_int_roll_rate,  		0, 0, 0, pid_output);
+		  pid_equation(error_roll_rate, prev_error_roll_rate, prev_int_roll_rate,  		0.6, 2, 0.1, pid_output);
 		  prev_error_roll_rate 	= error_roll_rate;
 		  input_roll 			= pid_output[0];
 		  prev_int_roll_rate 	= pid_output[1];
 
-		  //pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			1, 0.5, 0, pid_output);
-		  pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			0, 0, 0, pid_output);
+		  pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			1, 0.5, 0, pid_output);
+
 		  prev_error_yaw_rate	= error_yaw_rate;
 		  input_yaw	 			= pid_output[0];
 		  prev_int_yaw_rate 	= pid_output[1];
@@ -362,12 +364,19 @@ int main(void)
 			  }
 			  else
 			  {
-				  data_collection_buffer[(current_measurement_index*4)] 	= current_measurement_index;
-				  data_collection_buffer[(current_measurement_index*4)+1] 	= (int)(kalman_pitch_angle/180*32768);
-				  data_collection_buffer[(current_measurement_index*4)+2] 	= (int)(kalman_roll_angle/180*32768);
-				  data_collection_buffer[(current_measurement_index*4)+3] 	= (int)(yaw/180*32768);
+				  data_collection_buffer[current_measurement_index].index 	= current_measurement_index;
+				  data_collection_buffer[current_measurement_index].pitch 	= (int16_t)(kalman_pitch_angle/180*32768);
+				  data_collection_buffer[current_measurement_index].roll 	= (int16_t)(kalman_roll_angle/180*32768);
+				  data_collection_buffer[current_measurement_index].yaw 	= (int16_t)(yaw/180*32768);
 				  current_measurement_index+=1;
 			  }
+		  }
+
+		  if(save_to_flash_flag == 1)
+		  {
+			  save_to_flash_flag = 0;
+			  erase_pages();
+			  flash_write_data( (uint64_t*) data_collection_buffer , Numb_Measurements);
 		  }
 
 
@@ -376,8 +385,9 @@ int main(void)
 		  if(send_data_flag == 1)
 		  {
 			  send_data_flag = 0;
+
 			  send_header(&data_header, &huart2);
-			  send_collected_data(data_collection_buffer, data_header.numb_measurements, &huart2);
+			  send_collected_data((data_collection_struct*) FLASH_REGION_START, data_header.numb_measurements, &huart2);
 		  }
 
 
@@ -650,7 +660,7 @@ static void MX_TIM7_Init(void)
   htim7.Instance = TIM7;
   htim7.Init.Prescaler = 32-1;
   htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim7.Init.Period = 2500-1;
+  htim7.Init.Period = 3000-1;
   htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
   {

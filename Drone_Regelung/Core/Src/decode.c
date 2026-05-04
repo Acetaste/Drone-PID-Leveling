@@ -13,7 +13,7 @@
 #include <ctype.h>
 
 #define max_numb(a, b) (((a) < (b)) ? (a) : (b))
-#define P_Value_Increase 0.01
+#define P_Value_Increase 1
 
 char decode(int binary)
 {
@@ -75,7 +75,7 @@ char decode(int binary)
 	return result;
 }
 
-void interpret_IR_Char(char IR_Character, struct data_header_struct* data_header, uint8_t* stop_flag , uint8_t* save_data_flag,uint8_t* send_data_flag,uint8_t* new_angle_flag, UART_HandleTypeDef* UART_handle, TIM_HandleTypeDef pwm_timer_handle)
+void interpret_IR_Char(char IR_Character, struct data_header_struct* data_header, uint8_t* stop_flag , uint8_t* save_data_flag,uint8_t* send_data_flag,uint8_t* new_angle_flag,uint8_t* save_to_flash_flag, UART_HandleTypeDef* UART_handle, TIM_HandleTypeDef pwm_timer_handle)
 {
 	static char setting_string[4];
 	static uint8_t setting_string_index;
@@ -87,8 +87,8 @@ void interpret_IR_Char(char IR_Character, struct data_header_struct* data_header
 	{
 
 		case('*'):
+			*save_to_flash_flag = 1;
 			*stop_flag = 1;
-			*send_data_flag =1;
 			set_all_motor_pwm(0, pwm_timer_handle);
 			sprintf((char*) uart_buffer,"Stop flag set\n");
 			HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
@@ -132,27 +132,45 @@ void interpret_IR_Char(char IR_Character, struct data_header_struct* data_header
 			setting_string_index = 1;
 			break;
 
+
 		case('O'):
 			switch(setting_string[0])
 			{
 					case('L'):
 							data_header->desired_roll 	= 		max_numb(atoi(&setting_string[1]),90);
 							*new_angle_flag				= 		1;
+							*stop_flag 					=		0;
+							*save_data_flag 			=		1;
+
 							break;
 
 					case('R'):
 							data_header->desired_roll 	= (-1) *  max_numb(atoi(&setting_string[1]),90);
 							*new_angle_flag				= 		1;
+							*stop_flag 					=		0;
+							*save_data_flag 			=		1;
+
 							break;
 
 					case('U'):
 							data_header->desired_pitch 	= 		max_numb(atoi(&setting_string[1]),90);
 							*new_angle_flag				= 		1;
+							*stop_flag 					=		0;
+							*save_data_flag 			=		1;
 							break;
 
 					case('D'):
 							data_header->desired_pitch 	= (-1) *  max_numb(atoi(&setting_string[1]),90);
 							*new_angle_flag				= 		1;
+							*stop_flag 					=		0;
+							*save_data_flag 			=		1;
+
+							break;
+					case('0'):
+							if(setting_string[1] == '0' && setting_string[2]== '0')
+							{
+								*send_data_flag =1;
+							}
 							break;
 
 				default:
@@ -162,9 +180,7 @@ void interpret_IR_Char(char IR_Character, struct data_header_struct* data_header
 
 			sprintf((char*) uart_buffer,"Pitch set to: %d, Roll set to %d\n",data_header->desired_pitch,data_header->desired_roll);
 			HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
-			*stop_flag = 0;
-			*save_data_flag =1;
-			*new_angle_flag = 1;
+
 			break;
 
 		default:
@@ -191,7 +207,12 @@ void interpret_IR_Char(char IR_Character, struct data_header_struct* data_header
 					setting_string_index++;
 
 				}
-
+				else if(IR_Character == '0' && setting_string_index == 0)
+				{
+					strncpy(setting_string, clear_value, 4);
+					setting_string[0] = '0';
+					setting_string_index = 1;
+				}
 				else
 				{
 					setting_string_index = 0;

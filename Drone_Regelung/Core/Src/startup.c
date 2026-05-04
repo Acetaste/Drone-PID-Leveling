@@ -26,6 +26,7 @@
 
 
 #include "startup.h"
+#include "read_sensor.h"
 
 
 void timer_start(uint16_t* timer_val, TIM_HandleTypeDef* pwm_timer_handle, TIM_HandleTypeDef* IR_remote_duration_timer_handle, TIM_HandleTypeDef* flag_setting_timer_handle )

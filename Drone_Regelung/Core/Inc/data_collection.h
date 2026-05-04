@@ -24,7 +24,16 @@ struct data_header_struct
 
 };
 
-void send_header(struct data_header_struct* data_header, UART_HandleTypeDef* UART_handle);
-void send_collected_data(int16_t* data_buff, int16_t numb_measurements, UART_HandleTypeDef* UART_handle);
+typedef struct
+{
+	int16_t index;
+	int16_t pitch;
+	int16_t roll;
+	int16_t yaw;
+}data_collection_struct;
 
+void send_header(struct data_header_struct* data_header, UART_HandleTypeDef* UART_handle);
+void send_collected_data(data_collection_struct* data_buff, int16_t numb_measurements, UART_HandleTypeDef* UART_handle);
+void erase_pages(void);
+void flash_write_data( uint64_t *data, uint16_t len);
 #endif /* INC_DATA_COLLECTION_H_ */

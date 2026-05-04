@@ -11,8 +11,8 @@
 #include "calculations.h"
 #include <math.h>
 
-#define Cap 120
-#define Loop_Time 2.5/1000 //seconds between measurements
+#define Cap 150
+#define Loop_Time 3/1000 //seconds between measurements
 #define gyro_error 4
 #define acc_error 2
 #define rad_to_degree 57.29578f
