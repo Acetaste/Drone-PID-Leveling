@@ -58,44 +58,14 @@ int pwm_cap(int pwm)
 
 float acc_roll(float acc_x,float acc_y, float acc_z)
 {
-	float acc_roll = rad_to_degree*(atanf(acc_y/sqrtf((acc_x*acc_x)+(acc_z*acc_z))));
-
-	if(acc_z >=0)
-	{
-		return acc_roll;
-	}
-	else
-	{
-		if(acc_y >= 0)
-		{
-			return 180 - acc_roll;
-		}
-		else
-		{
-			return (-180) - acc_roll;
-		}
-	}
-
+	float acc_roll = rad_to_degree*(atan2f(acc_y, acc_z));
+	return acc_roll;
 }
 
 float acc_pitch(float acc_x,float acc_y, float acc_z)
 {
-	float acc_pitch = rad_to_degree*(atanf(-acc_x/sqrtf((acc_y*acc_y)+(acc_z*acc_z))));
-	if(acc_z >=0)
-	{
-		return acc_pitch;
-	}
-	else
-	{
-		if((-1*acc_x) >= 0)
-		{
-			return 180 - acc_pitch;
-		}
-		else
-		{
-			return (-180) - acc_pitch;
-		}
-	}
+	float acc_pitch = rad_to_degree*(atan2f(-acc_x,sqrtf((acc_y*acc_y)+(acc_z*acc_z))));
+	return acc_pitch;
 }
 
 
@@ -146,4 +116,11 @@ float yaw_cap(float yaw)
 		  yaw += 360;
 	  }
 	  return yaw;
+}
+void low_pass_filter(float* current_value, float* last_filtered_value, int cnt, float gain)
+{
+	for(int i = 0; i < cnt;i++)
+	{
+		last_filtered_value[i] = last_filtered_value[i]*gain + (1-gain)*current_value[i];
+	}
 }

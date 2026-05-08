@@ -11,16 +11,14 @@
 #include "stm32l4xx_hal.h"
 
 
-struct data_header_struct
+typedef struct
 {
 	int16_t desired_pitch;
 	int16_t desired_roll;
 	int16_t desired_yaw;
 	int16_t loop_time;
-	int16_t numb_measurements;
-
-
-};
+	uint64_t numb_measurements;
+}data_header_struct;
 
 typedef struct
 {
@@ -30,8 +28,8 @@ typedef struct
 	int16_t yaw;
 }data_collection_struct;
 
-void send_header(struct data_header_struct* data_header, UART_HandleTypeDef* UART_handle);
+void send_header(data_header_struct* data_header, UART_HandleTypeDef* UART_handle);
 void send_collected_data(data_collection_struct* data_buff, int16_t numb_measurements, UART_HandleTypeDef* UART_handle);
 void erase_pages(void);
-void flash_write_data( uint64_t *data, uint16_t len);
+void flash_write( uint64_t *data, uint16_t len, uint32_t address);
 #endif /* INC_DATA_COLLECTION_H_ */

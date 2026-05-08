@@ -18,5 +18,6 @@ void pid_equation(float Error, float Prev_Error, float Prev_Int, float P, float 
 int pwm_cap(int pwm);
 void motor_inputs(float InputPitch, float InputRoll, float InputYaw, int* MotorInput);
 float yaw_cap(float yaw);
+void low_pass_filter(float* current_value, float* last_filtered_value, int cnt, float gain);
 
 #endif /* INC_CALCULATIONS_H_ */

@@ -142,7 +142,7 @@ int main(void)
 
   int 	current_measurement_index 		= 0;
 
-  struct data_header_struct data_header = {
+  data_header_struct data_header = {
 		.desired_pitch 					= 0,
 		.desired_roll 					= 0,
 		.desired_yaw 					= 0,
@@ -163,6 +163,8 @@ int main(void)
   float gyro_body_rate[3] 				= {0,0,0};
   float gyro_rate[3] 					= {0,0,0};
   float acc_rate[3] 					= {0,0,0};
+  float low_pass_gyro_body_rate[3] 		= {0,0,0};
+  float low_pass_acc_rate[3] 			= {0,0,0};
   float yaw 							= 0;
   float accel_pitch, accel_roll;
 
@@ -243,14 +245,15 @@ int main(void)
 		  get_gyr_data(gyro_body_rate, &hi2c3, &huart2);
 		  get_acc_data(acc_rate, standard_acc_range, &hi2c3, &huart2);
 
-
+		  low_pass_filter(acc_rate, low_pass_acc_rate, 3, 0.1);
+		  low_pass_filter(gyro_body_rate, low_pass_gyro_body_rate, 3, 0.5);
 
 		  //calculating roll an pitch from accelerometer data
-		  accel_pitch = acc_pitch((*(acc_rate+0)),(*(acc_rate+1)),(*(acc_rate+2)));
-		  accel_roll = acc_roll((*(acc_rate+0)),(*(acc_rate+1)),(*(acc_rate+2)));
+		  accel_pitch = acc_pitch((*(low_pass_acc_rate+0)),(*(low_pass_acc_rate+1)),(*(low_pass_acc_rate+2)));
+		  accel_roll = acc_roll((*(low_pass_acc_rate+0)),(*(low_pass_acc_rate+1)),(*(low_pass_acc_rate+2)));
 
 		  //converting body gyrorate to fixed gyro rate
-		  body_rate_to_fixed_rate(gyro_body_rate, accel_roll,accel_pitch, gyro_rate);
+		  body_rate_to_fixed_rate(low_pass_gyro_body_rate, kalman_roll_angle,kalman_pitch_angle, gyro_rate);
 
 
 
@@ -310,19 +313,20 @@ int main(void)
 
 
 
-		 // pid_equation(error_pitch_rate, prev_error_pitch_rate, prev_int_pitch_rate, 	1, 0.03 , 0.01, pid_output);
-		  pid_equation(error_pitch_rate, prev_error_pitch_rate, prev_int_pitch_rate, 	0, 0 , 0, pid_output);
+		  pid_equation(error_pitch_rate, prev_error_pitch_rate, prev_int_pitch_rate, 	2, 0.5 , 0.01, pid_output);
+		  //pid_equation(error_pitch_rate, prev_error_pitch_rate, prev_int_pitch_rate, 	0, 0 , 0, pid_output);
 		  prev_error_pitch_rate = error_pitch_rate;
 		  input_pitch 			= pid_output[0];
 		  prev_int_pitch_rate 	= pid_output[1];
 
-		  pid_equation(error_roll_rate, prev_error_roll_rate, prev_int_roll_rate,  		1.5, 0.1, 0.01, pid_output);
+		  pid_equation(error_roll_rate, prev_error_roll_rate, prev_int_roll_rate,  		4, 1.5, 0.01, pid_output);
+		  //pid_equation(error_roll_rate, prev_error_roll_rate, prev_int_roll_rate,  		0,0, 0, pid_output);
 		  prev_error_roll_rate 	= error_roll_rate;
 		  input_roll 			= pid_output[0];
 		  prev_int_roll_rate 	= pid_output[1];
 
-		  //pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			2, 0.1, 0, pid_output);
-		  pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			0, 0.0, 0, pid_output);
+		  pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			3, 2, 0, pid_output);
+		  //pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			0, 0.0, 0, pid_output);
 		  prev_error_yaw_rate	= error_yaw_rate;
 		  input_yaw	 			= pid_output[0];
 		  prev_int_yaw_rate 	= pid_output[1];
@@ -332,6 +336,7 @@ int main(void)
 
 		  //translate the change in angles to motor inputs
 		  motor_inputs(input_pitch, input_roll,input_yaw, motor_input);
+
 
 
 
@@ -358,8 +363,8 @@ int main(void)
 			  else
 			  {
 				  data_collection_buffer[current_measurement_index].index 	= current_measurement_index;
-				  data_collection_buffer[current_measurement_index].pitch 	= (int16_t)(kalman_pitch_angle/180*32768);
 				  data_collection_buffer[current_measurement_index].roll 	= (int16_t)(kalman_roll_angle/180*32768);
+				  data_collection_buffer[current_measurement_index].pitch 	= (int16_t)(kalman_pitch_angle/180*32768);
 				  data_collection_buffer[current_measurement_index].yaw 	= (int16_t)(yaw/180*32768);
 				  current_measurement_index+=1;
 			  }
@@ -369,7 +374,8 @@ int main(void)
 		  {
 			  save_to_flash_flag = 0;
 			  erase_pages();
-			  flash_write_data( (uint64_t*) data_collection_buffer , Numb_Measurements);
+			  flash_write( (uint64_t*) &data_header , sizeof(data_header_struct)/sizeof(uint64_t), FLASH_REGION_START);
+			  flash_write( (uint64_t*) data_collection_buffer , Numb_Measurements, FLASH_REGION_START+ sizeof(data_header_struct));
 		  }
 
 
@@ -379,21 +385,27 @@ int main(void)
 		  {
 			  send_data_flag = 0;
 
-			  send_header(&data_header, &huart2);
-			  send_collected_data((data_collection_struct*) FLASH_REGION_START, data_header.numb_measurements, &huart2);
+			  send_header((data_header_struct*) FLASH_REGION_START, &huart2);
+			  send_collected_data((data_collection_struct*) (FLASH_REGION_START+sizeof(data_header_struct)), data_header.numb_measurements, &huart2);
 		  }
 
-		 	  if(counter == 100)
-		 	  {
+		  if(counter == 1000)
+		 {
 
 		 	  	sprintf((char*) uart_buffer,"kalmanRoll: %d, kalmanPitch:%d, kalmanYaw: %d\n",(int) kalman_roll_angle	, (int) kalman_pitch_angle,(int) yaw);
 		 	  	HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
+		 	  	sprintf((char*) uart_buffer,"errorRoll: %d, errorPitch:%d, errorYaw: %d\n",(int) error_roll_ang	, (int) error_pitch_ang,(int) error_yaw_ang);
+		 	  	HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
+		 	  	sprintf((char*) uart_buffer,"gyroRoll: %d, gyroPitch:%d, gyroYaw: %d\n",(int) gyro_rate[0]	, (int) gyro_rate[1],(int) gyro_rate[2]);
+		 	  	HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
+		 	  	sprintf((char*) uart_buffer,"errorRollrate: %d, errorPitchlrate:%d, errorYawrate: %d\n\n",(int) error_roll_rate	, (int) error_pitch_rate,(int) error_yaw_rate);
+		 	  	HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
 		 	  	counter =0 ;
-		 	  }
-		 	  else
-		 	  {
-		 		  counter++;
-		 	  }
+		 }
+		 else
+		 {
+		 	counter++;
+		 }
 
 	  }
 
@@ -653,7 +665,7 @@ static void MX_TIM7_Init(void)
   htim7.Instance = TIM7;
   htim7.Init.Prescaler = 32-1;
   htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim7.Init.Period = 5000-1;
+  htim7.Init.Period = 3000-1;
   htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
   {

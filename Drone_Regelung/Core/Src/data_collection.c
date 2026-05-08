@@ -15,10 +15,10 @@
 
 
 
-void send_header(struct data_header_struct* data_header, UART_HandleTypeDef* UART_handle)
+void send_header(data_header_struct* data_header, UART_HandleTypeDef* UART_handle)
 {
 	uint8_t uart_buffer[50];
-	sprintf((char*) uart_buffer,"HEADER:P%dR%dY%dT%dN%d\n", data_header->desired_pitch,data_header->desired_roll,data_header->desired_yaw,data_header->loop_time, data_header-> numb_measurements);
+	sprintf((char*) uart_buffer,"HEADER:P%dR%dY%dT%dN%d\n", data_header->desired_pitch,data_header->desired_roll,data_header->desired_yaw,data_header->loop_time,(int) data_header-> numb_measurements);
 	HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
 }
 
@@ -47,9 +47,10 @@ void erase_pages(void)
 
 }
 
-void flash_write_data( uint64_t *data, uint16_t len)
+
+
+void flash_write( uint64_t *data, uint16_t len, uint32_t address)
 {
-	uint32_t address = FLASH_REGION_START;
     HAL_FLASH_Unlock();
 
     for (int i = 0; i < len; i++)
@@ -58,7 +59,6 @@ void flash_write_data( uint64_t *data, uint16_t len)
         address += 8;
     }
     HAL_FLASH_Lock();
-
 }
 
 

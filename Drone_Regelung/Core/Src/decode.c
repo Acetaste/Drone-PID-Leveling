@@ -79,7 +79,7 @@ char decode(int binary)
 	return result;
 }
 
-void interpret_IR_Char(char IR_Character, struct data_header_struct* data_header, uint8_t* stop_flag , uint8_t* save_data_flag,uint8_t* send_data_flag,uint8_t* new_angle_flag,uint8_t* save_to_flash_flag, UART_HandleTypeDef* UART_handle, TIM_HandleTypeDef pwm_timer_handle)
+void interpret_IR_Char(char IR_Character, data_header_struct* data_header, uint8_t* stop_flag , uint8_t* save_data_flag,uint8_t* send_data_flag,uint8_t* new_angle_flag,uint8_t* save_to_flash_flag, UART_HandleTypeDef* UART_handle, TIM_HandleTypeDef pwm_timer_handle)
 {
 	static char setting_string[4];
 	static uint8_t setting_string_index;

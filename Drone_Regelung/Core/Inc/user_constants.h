@@ -8,23 +8,24 @@
 #ifndef INC_USER_CONSTANTS_H_
 #define INC_USER_CONSTANTS_H_
 
+#include "stm32l4xx_hal.h"
 //used in multiple places
-#define LOOP_TIME_MS 5						//milliseconds between measurements
+#define LOOP_TIME_MS 3						//milliseconds between measurements
 #define LOOP_TIME_S (LOOP_TIME_MS/1000.0f) 		//seconds between measurements
 #define GYR_ADDR (0x69u <<1)				//i2c slave address
 #define ACC_ADDR (0x18u <<1)				//i2c slave address
-#define FLASH_REGION_START  0x0803B000
+#define FLASH_REGION_START  0x08038000
 //used in main.c
-#define Numb_Measurements 2000				//Number of measurements to be acquired during a test run, used for buffer size allocation
-#define P_outer 3
+#define Numb_Measurements 3000				//Number of measurements to be acquired during a test run, used for buffer size allocation
+#define P_outer 1
 #define I_outer 0
 #define D_outer 0
 #define standard_acc_range  6
 
 //used in calculations.c
-#define PWM_CAP 150
-#define I_CAP 80
-#define PID_CAP 100
+#define PWM_CAP 160
+#define I_CAP 100
+#define PID_CAP 140
 #define gyro_error 4
 #define acc_error 2
 #define rad_to_degree 57.29578f
