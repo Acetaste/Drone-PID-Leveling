@@ -15,6 +15,11 @@ StrYaw      = StringVar()
 StrTime     = StringVar()
 StrNumber   = StringVar()
 
+BoolRoll    = BooleanVar()
+BoolPitch   = BooleanVar()
+BoolYaw     = BooleanVar()
+BoolList    = list()
+
 NumbList    = list()
 PitchList   = list()
 RollList    = list()
@@ -53,31 +58,44 @@ def read_callback():
 def visualize_callback():
     TimeList = [int(StrTime.get())* i for i in NumbList]
     
-    pitchplot.cla()
-    rollplot.cla()
-    yawplot.cla()
+    for axis in figure.get_axes():
+        figure.delaxes(axis)
+        
+    BoolList.clear()
+    if BoolRoll.get():
+        BoolList.append(BoolRoll)   
+        
+    if BoolPitch.get():
+        BoolList.append(BoolPitch) 
     
+    if BoolYaw.get():    
+        BoolList.append(BoolYaw)    
 
-    pitchplot.plot(TimeList,PitchList, "b")   
-    pitchplot.step([TimeList[0], TimeList[-1]],[0,int(StrPitch.get())], "r")
-    rollplot.plot(TimeList,RollList, "b")   
-    rollplot.step([TimeList[0], TimeList[-1]],[0,int(StrRoll.get())], "r")
-    yawplot.plot(TimeList,YawList, "b")   
-    yawplot.step([TimeList[0], TimeList[-1]],[0,int(StrYaw.get())], "r")
+    if(BoolRoll.get()):
+        rollplot = figure.add_subplot(len(BoolList),1,BoolList.index(BoolRoll)+1)
+        rollplot.set_title("Roll")
+        rollplot.set_ylabel("Angle (°)")
+        rollplot.plot(TimeList,RollList, "b")   
+        rollplot.step([TimeList[0], TimeList[-1]],[0,int(StrRoll.get())], "r")
     
-    
-    pitchplot.set_title(label = "Pitch")
-    pitchplot.set_ylabel("Angle (°)")
-    
-    rollplot.set_title("Roll")
-    rollplot.set_ylabel("Angle (°)")
-    
-    yawplot.set_title("Yaw")
-    yawplot.set_xlabel("Time (ms)") 
-    yawplot.set_ylabel("Angle (°)")
+    if(BoolPitch.get()):
+        pitchplot = figure.add_subplot(len(BoolList),1,BoolList.index(BoolPitch)+1)
+        pitchplot.set_title(label = "Pitch")
+        pitchplot.set_ylabel("Angle (°)")
+        pitchplot.plot(TimeList,PitchList, "b")   
+        pitchplot.step([TimeList[0], TimeList[-1]],[0,int(StrPitch.get())], "r")
 
     
-    
+    if(BoolYaw.get()):
+        yawplot = figure.add_subplot(len(BoolList),1,BoolList.index(BoolYaw)+1)
+        yawplot.set_title("Yaw")
+        yawplot.set_ylabel("Angle (°)")
+        yawplot.plot(TimeList,YawList, "b")   
+        yawplot.step([TimeList[0], TimeList[-1]],[0,int(StrYaw.get())], "r")
+        
+    if figure.get_axes():
+        figure.get_axes()[-1].set_xlabel("Time (ms)") 
+        
     canvas.draw()
     
     
@@ -133,8 +151,12 @@ timeframe.grid(column = 4, row = 0, sticky = (W, E))
 numberframe = ttk.Frame(controlframe)
 numberframe.grid(column = 5, row = 0, sticky = (W, E))
 
+checkboxframe = ttk.Frame(controlframe)
+checkboxframe.grid(column = 6, row = 0, sticky = (W, E))
+
 visualizebutton = ttk.Button(controlframe, text = "Visualize", command= visualize_callback)
-visualizebutton.grid(column = 6, row = 0, sticky =(W, E))
+visualizebutton.grid(column = 7, row = 0, sticky =(W, E))
+
 
 
 
@@ -177,6 +199,17 @@ numberentry.grid(column = 1, row = 0)
 
 
 
+rollcheck = ttk.Checkbutton(checkboxframe, text = "show roll", variable = BoolRoll)
+rollcheck.grid(column=0, row = 0)
+
+pitchcheck = ttk.Checkbutton(checkboxframe, text = "show pitch", variable = BoolPitch)
+pitchcheck.grid(column=1, row = 0)
+
+yawcheck = ttk.Checkbutton(checkboxframe, text = "show yaw", variable = BoolYaw)
+yawcheck.grid(column=2, row = 0)
+
+
+
 
 
 #textframe
@@ -191,19 +224,6 @@ textentry.grid(column = 0, row = 0, sticky = (N, S , W, E))
 #dataframe
 figure = Figure(dpi = 100)
 
-pitchplot = figure.add_subplot(3,1,1)
-pitchplot.set_title(label = "Pitch")
-pitchplot.set_ylabel("Angle (°)")
-
-rollplot = figure.add_subplot(3,1,2)
-rollplot.set_title("Roll")
-rollplot.set_ylabel("Angle (°)")
-
-yawplot = figure.add_subplot(3,1,3)
-yawplot.set_title("Yaw")
-yawplot.set_xlabel("Time (ms)") 
-yawplot.set_ylabel("Angle (°)")
-
 canvas = FigureCanvasTkAgg(figure, master = dataframe)
 canvas.get_tk_widget().pack(fill = "both", expand = True)
 
@@ -212,6 +232,7 @@ toolbar.pack()
 
 toolbar.update()
 canvas.draw()
+
 
 
 

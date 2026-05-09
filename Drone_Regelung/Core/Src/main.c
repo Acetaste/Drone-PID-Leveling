@@ -163,7 +163,6 @@ int main(void)
   float gyro_body_rate[3] 				= {0,0,0};
   float gyro_rate[3] 					= {0,0,0};
   float acc_rate[3] 					= {0,0,0};
-  float low_pass_gyro_body_rate[3] 		= {0,0,0};
   float low_pass_acc_rate[3] 			= {0,0,0};
   float yaw 							= 0;
   float accel_pitch, accel_roll;
@@ -186,14 +185,13 @@ int main(void)
   float prev_int_roll_ang		= 0, 	prev_int_pitch_ang		= 0, 	prev_int_yaw_ang	= 0;
 
 
+  /*
   uint8_t uart_buffer[150];
   int counter 							= 0;
-
-
   float p_pitch 						= 0;
   float p_roll 							= 0;
   float p_yaw 							= 0;
-
+   */
 
 
   configure_imu(&hi2c3, &huart2);
@@ -246,14 +244,13 @@ int main(void)
 		  get_acc_data(acc_rate, standard_acc_range, &hi2c3, &huart2);
 
 		  low_pass_filter(acc_rate, low_pass_acc_rate, 3, 0.1);
-		  low_pass_filter(gyro_body_rate, low_pass_gyro_body_rate, 3, 0.5);
 
 		  //calculating roll an pitch from accelerometer data
 		  accel_pitch = acc_pitch((*(low_pass_acc_rate+0)),(*(low_pass_acc_rate+1)),(*(low_pass_acc_rate+2)));
 		  accel_roll = acc_roll((*(low_pass_acc_rate+0)),(*(low_pass_acc_rate+1)),(*(low_pass_acc_rate+2)));
 
 		  //converting body gyrorate to fixed gyro rate
-		  body_rate_to_fixed_rate(low_pass_gyro_body_rate, kalman_roll_angle,kalman_pitch_angle, gyro_rate);
+		  body_rate_to_fixed_rate(gyro_body_rate, kalman_roll_angle,kalman_pitch_angle, gyro_rate);
 
 
 
@@ -313,19 +310,19 @@ int main(void)
 
 
 
-		  pid_equation(error_pitch_rate, prev_error_pitch_rate, prev_int_pitch_rate, 	2, 0.5 , 0.01, pid_output);
+		  pid_equation(error_pitch_rate, prev_error_pitch_rate, prev_int_pitch_rate, 	2, 1 , 0.001, pid_output);
 		  //pid_equation(error_pitch_rate, prev_error_pitch_rate, prev_int_pitch_rate, 	0, 0 , 0, pid_output);
 		  prev_error_pitch_rate = error_pitch_rate;
 		  input_pitch 			= pid_output[0];
 		  prev_int_pitch_rate 	= pid_output[1];
 
-		  pid_equation(error_roll_rate, prev_error_roll_rate, prev_int_roll_rate,  		4, 1.5, 0.01, pid_output);
+		  pid_equation(error_roll_rate, prev_error_roll_rate, prev_int_roll_rate,  		6, 2, 0, pid_output);
 		  //pid_equation(error_roll_rate, prev_error_roll_rate, prev_int_roll_rate,  		0,0, 0, pid_output);
 		  prev_error_roll_rate 	= error_roll_rate;
 		  input_roll 			= pid_output[0];
 		  prev_int_roll_rate 	= pid_output[1];
 
-		  pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			3, 2, 0, pid_output);
+		  pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			4, 4, 0, pid_output);
 		  //pid_equation(error_yaw_rate, prev_error_yaw_rate, prev_int_yaw_rate, 			0, 0.0, 0, pid_output);
 		  prev_error_yaw_rate	= error_yaw_rate;
 		  input_yaw	 			= pid_output[0];
@@ -389,13 +386,14 @@ int main(void)
 			  send_collected_data((data_collection_struct*) (FLASH_REGION_START+sizeof(data_header_struct)), data_header.numb_measurements, &huart2);
 		  }
 
+		  /*
 		  if(counter == 1000)
 		 {
 
 		 	  	sprintf((char*) uart_buffer,"kalmanRoll: %d, kalmanPitch:%d, kalmanYaw: %d\n",(int) kalman_roll_angle	, (int) kalman_pitch_angle,(int) yaw);
 		 	  	HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
-		 	  	sprintf((char*) uart_buffer,"errorRoll: %d, errorPitch:%d, errorYaw: %d\n",(int) error_roll_ang	, (int) error_pitch_ang,(int) error_yaw_ang);
-		 	  	HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
+		 	  	sprintf((char*) uart_buffer,"errorRoll: %d, errorPch:%d, errorYaw: %d\n",(int) error_roll_ang	, (int) error_pitch_ang,(int) error_yaw_ang);
+		 	  	HAL_UART_Transmit(&huart2, uart_buffer, strlen((chaitr*)uart_buffer), 100);
 		 	  	sprintf((char*) uart_buffer,"gyroRoll: %d, gyroPitch:%d, gyroYaw: %d\n",(int) gyro_rate[0]	, (int) gyro_rate[1],(int) gyro_rate[2]);
 		 	  	HAL_UART_Transmit(&huart2, uart_buffer, strlen((char*)uart_buffer), 100);
 		 	  	sprintf((char*) uart_buffer,"errorRollrate: %d, errorPitchlrate:%d, errorYawrate: %d\n\n",(int) error_roll_rate	, (int) error_pitch_rate,(int) error_yaw_rate);
@@ -406,6 +404,7 @@ int main(void)
 		 {
 		 	counter++;
 		 }
+		 */
 
 	  }
 

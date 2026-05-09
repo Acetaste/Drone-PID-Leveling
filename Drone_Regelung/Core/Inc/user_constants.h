@@ -23,9 +23,9 @@
 #define standard_acc_range  6
 
 //used in calculations.c
-#define PWM_CAP 160
+#define PWM_CAP 170
 #define I_CAP 100
-#define PID_CAP 140
+#define PID_CAP 150
 #define gyro_error 4
 #define acc_error 2
 #define rad_to_degree 57.29578f
