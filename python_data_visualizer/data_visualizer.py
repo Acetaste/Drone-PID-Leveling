@@ -25,6 +25,11 @@ PitchList   = list()
 RollList    = list()
 YawList     = list()
 
+def change_axes_color(ax):
+    ax.spines['bottom'].set_color('#72787A')
+    ax.spines['top'].set_color('#72787A')
+    ax.xaxis.label.set_color('#72787A')
+    ax.tick_params(axis='x', colors='#72787A')
 
 def read_callback():
     Header          = textentry.get("1.0", "1.end")
@@ -75,23 +80,26 @@ def visualize_callback():
         rollplot = figure.add_subplot(len(BoolList),1,BoolList.index(BoolRoll)+1)
         rollplot.set_title("Roll")
         rollplot.set_ylabel("Angle (°)")
-        rollplot.plot(TimeList,RollList, "b")   
-        rollplot.step([TimeList[0], TimeList[-1]],[0,int(StrRoll.get())], "r")
+        rollplot.plot(TimeList,RollList, "#00649C")   
+        rollplot.step([TimeList[0], TimeList[-1]],[0,int(StrRoll.get())], "#8BB31D")
+        change_axes_color(rollplot)
     
     if(BoolPitch.get()):
         pitchplot = figure.add_subplot(len(BoolList),1,BoolList.index(BoolPitch)+1)
         pitchplot.set_title(label = "Pitch")
         pitchplot.set_ylabel("Angle (°)")
-        pitchplot.plot(TimeList,PitchList, "b")   
-        pitchplot.step([TimeList[0], TimeList[-1]],[0,int(StrPitch.get())], "r")
+        pitchplot.plot(TimeList,PitchList, "#00649C")   
+        pitchplot.step([TimeList[0], TimeList[-1]],[0,int(StrPitch.get())], "#8BB31D")
+        change_axes_color(pitchplot)
 
     
     if(BoolYaw.get()):
         yawplot = figure.add_subplot(len(BoolList),1,BoolList.index(BoolYaw)+1)
         yawplot.set_title("Yaw")
         yawplot.set_ylabel("Angle (°)")
-        yawplot.plot(TimeList,YawList, "b")   
-        yawplot.step([TimeList[0], TimeList[-1]],[0,int(StrYaw.get())], "r")
+        yawplot.plot(TimeList,YawList, "#00649C")   
+        yawplot.step([TimeList[0], TimeList[-1]],[0,int(StrYaw.get())], "#8BB31D")
+        change_axes_color(yawplot)
         
     if figure.get_axes():
         figure.get_axes()[-1].set_xlabel("Time (ms)") 
