@@ -14,24 +14,37 @@
 #include "user_constants.h"
 
 
-
-void send_header(data_header_struct* data_header, UART_HandleTypeDef* UART_handle)
+/**
+ * @brief function to send formated header over UART
+ * @param data_header the struct containing the data header information
+ * @param UART_handle a pointer to the UART_Handle to send the data to
+ */
+void send_header(data_header_struct* Data_Header, UART_HandleTypeDef* UART_Handle)
 {
 	uint8_t uart_buffer[50];
-	sprintf((char*) uart_buffer,"HEADER:P%dR%dY%dT%dN%d\n", data_header->desired_pitch,data_header->desired_roll,data_header->desired_yaw,data_header->loop_time,(int) data_header-> numb_measurements);
-	HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
+	sprintf((char*) uart_buffer,"HEADER:P%dR%dY%dT%dN%d\n", Data_Header->desired_pitch,Data_Header->desired_roll,Data_Header->desired_yaw,Data_Header->loop_time,(int) Data_Header-> numb_measurements);
+	HAL_UART_Transmit(UART_Handle, uart_buffer, strlen((char*)uart_buffer), 100);
 }
 
-void send_collected_data(data_collection_struct* data_buff, int16_t numb_measurements, UART_HandleTypeDef* UART_handle)
+/**
+ * @brief function to send collected data over UART
+ * @param Data_Buff a pointer to an array of Numb_Measurements containing the the collected data
+ * @param Numb_Measurements the size of the Data_Buff array
+ * @param UART_handle a pointer to the UART_Handle to send the data to
+ */
+void send_collected_data(data_collection_struct* Data_Buff, int16_t Numb_Measurements, UART_HandleTypeDef* UART_Handle)
 {
-	for(int i = 0;i < numb_measurements; i++)
+	for(int i = 0;i < Numb_Measurements; i++)
 	{
 		uint8_t uart_buffer[50];
-		sprintf((char*) uart_buffer,"N%hdP%hdR%hdY%hd\n", data_buff[i].index, data_buff[i].pitch, data_buff[i].roll, data_buff[i].yaw);
-		HAL_UART_Transmit(UART_handle, uart_buffer, strlen((char*)uart_buffer), 100);
+		sprintf((char*) uart_buffer,"N%hdP%hdR%hdY%hd\n", Data_Buff[i].index, Data_Buff[i].pitch, Data_Buff[i].roll, Data_Buff[i].yaw);
+		HAL_UART_Transmit(UART_Handle, uart_buffer, strlen((char*)uart_buffer), 100);
 	}
 }
 
+/**
+ * @brief function to erase the in user_constants.h defined number of pages
+ */
 void erase_pages(void)
 {
     FLASH_EraseInitTypeDef EraseInitStruct;
@@ -47,16 +60,20 @@ void erase_pages(void)
 
 }
 
-
-
-void flash_write( uint64_t *data, uint16_t len, uint32_t address)
+/**
+ * @brief function to write Len number of Data elements to Adress in flash
+ * @param Data a pointer to Len elements containing the data
+ * @param Len the number of Data elements to be written
+ * @param Adress the starting adress of the section of the flash
+ */
+void flash_write( uint64_t *Data, uint16_t Len, uint32_t Address)
 {
     HAL_FLASH_Unlock();
 
-    for (int i = 0; i < len; i++)
+    for (int i = 0; i < Len; i++)
     {
-        HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, address, data[i]);
-        address += 8;
+        HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, Address, Data[i]);
+        Address += 8;
     }
     HAL_FLASH_Lock();
 }

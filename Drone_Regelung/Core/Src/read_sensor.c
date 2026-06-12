@@ -43,7 +43,7 @@ void get_gyr_data(float* gyro_rate, I2C_HandleTypeDef* I2C_handle ,UART_HandleTy
 				byteLSB = data_buffer[i*2];
 				byteMSB = data_buffer[i*2+1];
 				twoByte = byteMSB<<8 |byteLSB;
-				*(gyro_rate+i)= twoByte*gyro_range/32768;
+				*(gyro_rate+i)= twoByte*GYRO_RANGE/32768;
 			}
 		}
 	}

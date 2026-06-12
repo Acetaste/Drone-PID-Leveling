@@ -10,14 +10,14 @@
 
 
 
-float acc_roll(float acc_x,float acc_y, float acc_z);
-float acc_pitch(float acc_x,float acc_y, float acc_z);
-void body_rate_to_fixed_rate(float* body_rate, float degree_phi, float degree_theta, float * degree_output);
-void KalmanCalculation(float State, float Uncertainty, float Input, float Measurement, float* KalmanOutput);
-void pid_equation(float Error, float Prev_Error, float Prev_Int, float P, float I, float D,  float* PID_Output);
-int pwm_cap(int pwm);
-void motor_inputs(float InputPitch, float InputRoll, float InputYaw, int* MotorInput);
-float yaw_cap(float yaw);
-void low_pass_filter(float* current_value, float* last_filtered_value, int cnt, float gain);
+float acc_roll(float Acc_Y, float Acc_Z);
+float acc_pitch(float Acc_X,float Acc_Y, float Acc_Z);
+void body_rate_to_fixed_rate(float* Body_Rate,float Degree_Phi, float Degree_Theta, float * Degree_Output);
+void kalman_calculation(float State, float Uncertainty, float Input, float Measurement, float* Kalman_Output);
+void pid_equation(float Error, float Prev_Error, float Prev_I, float P, float I, float D,  float* PID_Output);
+int pwm_cap(int PWM);
+void motor_inputs(float Input_Pitch, float Input_Roll, float Input_Yaw, int* Motor_Output);
+float yaw_cap(float Yaw);
+void low_pass_filter(float* Current_Value, float* Last_Filtered_Value, int Count, float Gain);
 
 #endif /* INC_CALCULATIONS_H_ */

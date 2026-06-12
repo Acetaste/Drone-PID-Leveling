@@ -9,5 +9,5 @@
 #define INC_HARDWARE_CONTROL_H_
 #include "stm32l4xx_hal.h"
 
-void set_all_motor_pwm(int pwm_value, TIM_HandleTypeDef tim_handle);
+void set_all_motor_pwm(int PWM_Value, TIM_HandleTypeDef Tim_Handle);
 #endif /* INC_HARDWARE_CONTROL_H_ */

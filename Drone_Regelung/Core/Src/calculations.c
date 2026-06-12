@@ -12,11 +12,20 @@
 #include "user_constants.h"
 #include <math.h>
 
-
-void pid_equation(float Error, float Prev_Error, float Prev_Int, float P, float I, float D, float* PID_Output)
+/**
+ * @brief PID controller function
+ * @param Error the error to the desired Value
+ * @param Prev_Error the error of the previous interation for I and D term
+ * @param Prev_I the I term of the previous iteration
+ * @param P the gain for the P term
+ * @param I the gain for the I term
+ * @param D the gain for the D term
+ * @param PID_Output a pointer where the PID output and the I term are returned to
+ */
+void pid_equation(float Error, float Prev_Error, float Prev_I, float P, float I, float D, float* PID_Output)
 {
 	float Pterm = Error * P;
-	float Iterm = Prev_Int + (I *(Error + Prev_Error)*LOOP_TIME_S)/2;
+	float Iterm = Prev_I + (I *(Error + Prev_Error)*LOOP_TIME_S)/2;
 	if (Iterm > I_CAP)
 	{
 		Iterm = I_CAP;
@@ -42,85 +51,137 @@ void pid_equation(float Error, float Prev_Error, float Prev_Int, float P, float 
 	*(PID_Output+1) = Iterm;
 
 }
-
-int pwm_cap(int pwm)
+/**
+ * @brief function to cap the PWM before writing it to the timers
+ * @param PWM the uncapped pwm value
+ * @return the capped pwm value
+ */
+int pwm_cap(int PWM)
 {
-	if(pwm > PWM_CAP)
+	if(PWM > PWM_CAP)
 	{
-		pwm = PWM_CAP;
+		PWM = PWM_CAP;
 	}
-	if(pwm < 0)
+	if(PWM < 0)
 	{
-		pwm = 0;
+		PWM = 0;
 	}
-	return pwm;
+	return PWM;
 }
 
-float acc_roll(float acc_x,float acc_y, float acc_z)
+/**
+ * @brief function to calculate roll from accelerometer readings
+ * @note uses roll,pitch, and yaw order and no compensation for instability at a pitch of ~+90°/-90°
+ * @param Acc_Y the y value of the accelerometer
+ * @param Acc_Z the z value of the accelerometer
+ * @return the calulated roll
+ */
+float acc_roll(float Acc_Y, float Acc_Z)
 {
-	float acc_roll = rad_to_degree*(atan2f(acc_y, acc_z));
+	float acc_roll = RAD_TO_DEGREE*(atan2f(Acc_Y, Acc_Z));
 	return acc_roll;
 }
 
-float acc_pitch(float acc_x,float acc_y, float acc_z)
+/**
+ * @brief function to calculate pitch from accelerometer readings
+ * @note uses roll,pitch, and yaw order
+ * @param Acc_X the x value of the accelerometer
+ * @param Acc_Y the y value of the accelerometer
+ * @param Acc_Z the z value of the accelerometer
+ * @return the calulated pitch
+ */
+float acc_pitch(float Acc_X,float Acc_Y, float Acc_Z)
 {
-	float acc_pitch = rad_to_degree*(atan2f(-acc_x,sqrtf((acc_y*acc_y)+(acc_z*acc_z))));
+	float acc_pitch = RAD_TO_DEGREE*(atan2f(-Acc_X,sqrtf((Acc_Y*Acc_Y)+(Acc_Z*Acc_Z))));
 	return acc_pitch;
 }
 
-
-void KalmanCalculation(float State, float Uncertainty, float Input, float Measurement, float* KalmanOutput)
+/**
+ * @brief function to calculate kalman filtered angle estimation using gyroscope data and acceleremoter angle estimation
+ * @param State the state of the system, equal to the last filtered angle estimation
+ * @param Uncertainty the Kalman uncertainty matrix, 1x1 in this case
+ * @param Input the input to the system, equal to the gyroscope data
+ * @param Measurement the state measurement, equal to the accelerometer angel estimation
+ * @param Kalman_Output a pointer to where the filtered output and uncertainty matrix are returned to
+ */
+void kalman_calculation(float State, float Uncertainty, float Input, float Measurement, float* Kalman_Output)
 {
 	State = State + LOOP_TIME_S*Input;
-	Uncertainty = Uncertainty + LOOP_TIME_S*LOOP_TIME_S*gyro_error*gyro_error;
-	float Gain = Uncertainty/(Uncertainty+acc_error*acc_error);
+	Uncertainty = Uncertainty + LOOP_TIME_S*LOOP_TIME_S*GYRO_ERROR*GYRO_ERROR;
+	float Gain = Uncertainty/(Uncertainty+ACC_ERROR*ACC_ERROR);
 	State= State + Gain*(Measurement-State);
 	Uncertainty = (1-Gain)*Uncertainty;
-	KalmanOutput[0] = State;
-	KalmanOutput[1] = Uncertainty;
+	Kalman_Output[0] = State;
+	Kalman_Output[1] = Uncertainty;
 }
 
-void body_rate_to_fixed_rate(float* body_rate,float degree_phi, float degree_theta, float * degree_output)
+/**
+ * @brief function to covert rotation rate in the body frame to rotation rate in the fixed frame
+ * @param Body_Rate a pointer to the rotation rates in the body frame in degrees
+ * @param Degree_Phi the current attitude angle phi in degrees
+ * @param Degree_Theta the current attitude angle theta in degrees
+ * @param Degree_Output a pointer to the output of the conversion in degrees in order roll, pitch, and yaw
+ */
+void body_rate_to_fixed_rate(float* Body_Rate,float Degree_Phi, float Degree_Theta, float * Degree_Output)
 {
-	float rad_theta 	= 	degree_theta		* degree_to_rad;
-	float rad_phi 		= 	degree_phi			* degree_to_rad;
-	float rad_p			=	(*(body_rate+0))	* degree_to_rad;
-	float rad_q			=	(*(body_rate+1))	* degree_to_rad;
-	float rad_r			=	(*(body_rate+2))	* degree_to_rad;
+	float rad_theta 	= 	Degree_Theta		* DEGREE_TO_RAD;
+	float rad_phi 		= 	Degree_Phi			* DEGREE_TO_RAD;
+	float rad_p			=	(*(Body_Rate+0))	* DEGREE_TO_RAD;
+	float rad_q			=	(*(Body_Rate+1))	* DEGREE_TO_RAD;
+	float rad_r			=	(*(Body_Rate+2))	* DEGREE_TO_RAD;
 	//roll
-	*(degree_output+0) = rad_to_degree*(	rad_p 	+ 	rad_q * (sinf(rad_phi) * tanf(rad_theta)) 	+	rad_r * cosf(rad_phi)*tanf(rad_theta));
+	*(Degree_Output+0) = RAD_TO_DEGREE*(	rad_p 	+ 	rad_q * (sinf(rad_phi) * tanf(rad_theta)) 	+	rad_r * cosf(rad_phi)*tanf(rad_theta));
 	//pitch
-	*(degree_output+1) = rad_to_degree*(				rad_q * cosf(rad_phi) 						-	rad_r * sinf(rad_phi));
+	*(Degree_Output+1) = RAD_TO_DEGREE*(				rad_q * cosf(rad_phi) 						-	rad_r * sinf(rad_phi));
 	//yaw
-	*(degree_output+2) = rad_to_degree*(				rad_q * sinf(rad_phi) / cosf(rad_theta) 	+ 	rad_r * cosf(rad_phi)/cosf(rad_theta));
+	*(Degree_Output+2) = RAD_TO_DEGREE*(				rad_q * sinf(rad_phi) / cosf(rad_theta) 	+ 	rad_r * cosf(rad_phi)/cosf(rad_theta));
 }
 
-
-void motor_inputs(float InputPitch, float InputRoll, float InputYaw, int* MotorInput)
+/**
+ * @brief function to covert desired change in attitude to motor inputs
+ * @param Input_Pitch a pointer to the rotation rates in the body frame in degrees
+ * @param Input_Roll the current attitude angle phi in degrees
+ * @param Input_Yaw the current attitude angle theta in degrees
+ * @param Motor_Output a pointer to the output of the conversion in degrees in order roll, pitch, and yaw
+ */
+void motor_inputs(float Input_Pitch, float Input_Roll, float Input_Yaw, int* Motor_Output)
 {
 	float pwm_scale = 1;
-	*(MotorInput+0) = (int)(pwm_scale*	((-1) * InputRoll		+ (+1) * InputPitch		+ (-1) * InputYaw));
-	*(MotorInput+1) = (int)(pwm_scale*	((+1) * InputRoll		+ (+1) * InputPitch		+ (+1) * InputYaw));
-	*(MotorInput+2) = (int)(pwm_scale*	((+1) * InputRoll		+ (-1) * InputPitch		+ (-1) * InputYaw));
-	*(MotorInput+3) = (int)(pwm_scale*	((-1) * InputRoll		+ (-1) * InputPitch		+ (+1) * InputYaw));
+	*(Motor_Output+0) = (int)(pwm_scale*	((-1) * Input_Roll		+ (+1) * Input_Pitch		+ (-1) * Input_Yaw));
+	*(Motor_Output+1) = (int)(pwm_scale*	((+1) * Input_Roll		+ (+1) * Input_Pitch		+ (+1) * Input_Yaw));
+	*(Motor_Output+2) = (int)(pwm_scale*	((+1) * Input_Roll		+ (-1) * Input_Pitch		+ (-1) * Input_Yaw));
+	*(Motor_Output+3) = (int)(pwm_scale*	((-1) * Input_Roll		+ (-1) * Input_Pitch		+ (+1) * Input_Yaw));
 }
 
-float yaw_cap(float yaw)
+/**
+ * @brief function to cap the yaw
+ * @param Yaw the uncapped yaw value
+ * @return the capped yaw value
+ */
+float yaw_cap(float Yaw)
 {
-	  if(yaw > 180)
+	  if(Yaw > 180)
 	  {
-		  yaw -= 360;
+		  Yaw -= 360;
 	  }
-	  if(yaw <= -180)
+	  if(Yaw <= -180)
 	  {
-		  yaw += 360;
+		  Yaw += 360;
 	  }
-	  return yaw;
+	  return Yaw;
 }
-void low_pass_filter(float* current_value, float* last_filtered_value, int cnt, float gain)
+
+/**
+ * @brief function aplly a discrete low pass filter to Count values with a gain of Gain
+ * @param Current_Value a pointer to an array of Count values of the current interation
+ * @param Last_Filtered_Value a pointer to an array of Count values of the last interation the filtered value is returned here
+ * @param Count the  number of values
+ * @param Gain the weight between 0 and 1 placed of the last iterations values
+ */
+void low_pass_filter(float* Current_Value, float* Last_Filtered_Value, int Count, float Gain)
 {
-	for(int i = 0; i < cnt;i++)
+	for(int i = 0; i < Count;i++)
 	{
-		last_filtered_value[i] = last_filtered_value[i]*gain + (1-gain)*current_value[i];
+		Last_Filtered_Value[i] = Last_Filtered_Value[i]*Gain + (1-Gain)*Current_Value[i];
 	}
 }

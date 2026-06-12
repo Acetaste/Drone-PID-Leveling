@@ -28,8 +28,8 @@ typedef struct
 	int16_t yaw;
 }data_collection_struct;
 
-void send_header(data_header_struct* data_header, UART_HandleTypeDef* UART_handle);
-void send_collected_data(data_collection_struct* data_buff, int16_t numb_measurements, UART_HandleTypeDef* UART_handle);
+void send_header(data_header_struct* Data_Header, UART_HandleTypeDef* UART_Handle);
+void send_collected_data(data_collection_struct* Data_Buff, int16_t Numb_Measurements, UART_HandleTypeDef* UART_Handle);
 void erase_pages(void);
-void flash_write( uint64_t *data, uint16_t len, uint32_t address);
+void flash_write( uint64_t *Data, uint16_t Len, uint32_t Address);
 #endif /* INC_DATA_COLLECTION_H_ */
