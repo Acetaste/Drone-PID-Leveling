@@ -213,7 +213,7 @@ int main(void)
 		  #ifndef TUNING_MODE
 		  interpret_IR_Char(ir_character, &data_header, &stop_flag, &save_data_flag, &send_data_flag, &new_angle_flag,&save_to_flash_flag, &huart2, htim1);
 		  #else
-		  interpret_IR_char_tuning(ir_character, &desired_pitch, &desired_roll, &stop_flag, htim1, &huart2, &p_pitch, &p_roll, &p_yaw);
+		  interpret_IR_char_tuning(ir_character, &desired_pitch, &desired_roll, &stop_flag, htim1, &huart2, &p_roll, &p_pitch, &p_yaw);
 		  #endif
 		  ir_character = '\0';
 	  }

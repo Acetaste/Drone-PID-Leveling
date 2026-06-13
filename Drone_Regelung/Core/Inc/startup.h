@@ -12,8 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 
-void timer_start(uint16_t* timer_val, TIM_HandleTypeDef* pwm_timer_handle, TIM_HandleTypeDef* IR_remote_duration_timer, TIM_HandleTypeDef* flag_setting_timer );
-void configure_imu(I2C_HandleTypeDef* I2C_handle ,UART_HandleTypeDef* UART_handle);
-void selftest_accel(I2C_HandleTypeDef* I2C_handle ,UART_HandleTypeDef* UART_handle);
+void timer_start(uint16_t* Timer_Val, TIM_HandleTypeDef* PWM_Timer_Handle, TIM_HandleTypeDef* IR_Remote_Duration_timer_Handle, TIM_HandleTypeDef* Flag_Setting_Timer_Handle);
+void configure_imu(I2C_HandleTypeDef* I2C_Handle ,UART_HandleTypeDef* UART_Handle);
 
 #endif /* INC_STARTUP_H_ */

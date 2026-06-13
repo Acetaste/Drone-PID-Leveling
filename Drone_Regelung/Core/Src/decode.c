@@ -85,12 +85,21 @@ char decode(int Binary)
  * @brief function to interpret the characters received by the IR remote
  * @detail 	when pressing  '*' the stop flag is set and the PWM is cleared
  * 			when pressing  '#' the desired angles and the internal string used for storing the previous inputs are cleared
+ * 			when pressing  "000" + 'OK' the Send_Data_Flag will ne set leading to the stored values of the flash being sent out over UART
  * 			otherwise the function expects inputs in the form "XYY" 'OK' where X is a direction i.e. up, down, left, right and Y is a digit 0-9
  * 			after pressing 'OK' the newly entered desired angle is set and the data equistion is started for the number of iterations in user_constants.h
- * @param
- * @param Tim_Handle the timer handle whose values are changed
+ *
+ * @param IR_Character the character to be interpreted
+ * @param Data_Header a pointer to the data header structure where the desired angles are saved
+ * @param Stop_Flag the flag set when the stop character '*' is pressed and reset when a new desired angle is selected
+ * @param Save_Data_Flag the flag set when a new desired angle is selected
+ * @param Send_Data_Flag the flag set when "000" + 'OK' is entered
+ * @param New_Angle_Flag the flag set when the desired angle has changed
+ * @param Save_To_Flash_Flag the flag set when the stop character '*' is entered
+ * @param UART_Handle the UART handle that debug information is written to
+ * @param PWM_Timer_Handle the timer handle whose pwm value is cleared when the stop character '*' is entered
  */
-void interpret_IR_Char(char IR_Character, Data_Header_struct* Data_Header, uint8_t* Stop_Flag , uint8_t* Save_Data_Flag,uint8_t* Send_Data_Flag,uint8_t* New_Angle_Flag,uint8_t* Save_To_Flash_Flag, UART_HandleTypeDef* UART_Handle, TIM_HandleTypeDef PWM_Timer_Handle)
+void interpret_IR_Char(char IR_Character, data_header_struct* Data_Header, uint8_t* Stop_Flag , uint8_t* Save_Data_Flag,uint8_t* Send_Data_Flag, uint8_t* New_Angle_Flag, uint8_t* Save_To_Flash_Flag, UART_HandleTypeDef* UART_Handle, TIM_HandleTypeDef PWM_Timer_Handle)
 {
 	static char setting_string[4];
 	static uint8_t setting_string_index;
@@ -112,13 +121,13 @@ void interpret_IR_Char(char IR_Character, Data_Header_struct* Data_Header, uint8
 		case('#'):
 			strncpy(setting_string, clear_value, 4);
 			setting_string_index 				= 	0;
-			Data_Header->desired_pitch 			=	0;
 			Data_Header->desired_roll 			=	0;
+			Data_Header->desired_pitch 			=	0;
 			Data_Header->desired_yaw 			=	0;
 			*New_Angle_Flag						= 	1;
 
 
-			sprintf((char*) uart_buffer,"Cleared setting string to %s and set Pitch:%d, Roll:%d, Yaw:%d\n", setting_string, Data_Header->desired_pitch, Data_Header->desired_roll, Data_Header->desired_yaw );
+			sprintf((char*) uart_buffer,"Cleared setting string to %s and set Roll:%d, Pitch:%d, Yaw:%d\n", setting_string, Data_Header->desired_roll, Data_Header->desired_pitch, Data_Header->desired_yaw );
 			HAL_UART_Transmit(UART_Handle, uart_buffer, strlen((char*)uart_buffer), 100);
 
 			break;
@@ -193,7 +202,7 @@ void interpret_IR_Char(char IR_Character, Data_Header_struct* Data_Header, uint8
 					HAL_UART_Transmit(UART_Handle, uart_buffer, strlen((char*)uart_buffer), 100);
 			}
 
-			sprintf((char*) uart_buffer,"Pitch set to: %d, Roll set to %d\n",Data_Header->desired_pitch,Data_Header->desired_roll);
+			sprintf((char*) uart_buffer,"Roll set to: %d, Pitch set to %d\n",Data_Header->desired_roll, Data_Header->desired_pitch);
 			HAL_UART_Transmit(UART_Handle, uart_buffer, strlen((char*)uart_buffer), 100);
 
 			break;
@@ -240,8 +249,27 @@ void interpret_IR_Char(char IR_Character, Data_Header_struct* Data_Header, uint8
 
 
 }
-
-void interpret_IR_char_tuning(char IR_Character, float* desired_Pitch, float* desired_Roll, uint8_t* Stop_Flag, TIM_HandleTypeDef PWM_Timer_Handle, UART_HandleTypeDef* UART_Handle, float* P_Pitch,float* P_Roll, float* P_Yaw)
+/**
+ * @brief function to interpret the characters received by the IR remote when used in tuning mode
+ * @detail 	when pressing the arrow keys the desired angle is incremented by 5
+ * 			when pressing '*' the stop flag is set and the pwm for all motors are cleared
+ * 			when pressing '#' the desired angles and the P values are cleared
+ * 			when pressing '2' the pwm value of all motors is set to 10, with '1' and '3' decreasing and increasing it by 1
+ * 			when pressing '4', '5', and '6' the P values of roll, pitch, and yaw are increased by P_VALUE_INCREASE in user_constans.h
+ * 			when pressing '7', '8', and '9' the P values of roll, pitch, and yaw are decreased by P_VALUE_INCREASE in user_constans.h
+ * 			when pressing '0' the stop flag is cleared
+ *
+ * @param IR_Character the character to be interpreted
+ * @param Desired_Pitch a pointer to the value that is changed when left and right arrows are pressed
+ * @param Desired_Roll a pointer to the value that is changed when up and down arrows are pressed
+ * @param Stop_Flag the flag set when the stop character '*' is pressed and reset when a new desired angle is selected
+ * @param PWM_Timer_Handle the timer handle whose pwm value is cleared when the stop character '*' is entered
+ * @param UART_Handle the UART handle that debug information is written to
+ * @param P_Roll a pointer to the P value of the inner loop controlling the roll
+ * @param P_Pitch a pointer to the P value of the inner loop controlling the pitch
+ * @param P_Yaw a pointer to the P value of the inner loop controlling the yaw
+ */
+void interpret_IR_char_tuning(char IR_Character, float* Desired_Pitch, float* Desired_Roll, uint8_t* Stop_Flag, TIM_HandleTypeDef PWM_Timer_Handle, UART_HandleTypeDef* UART_Handle, float* P_Roll,float* P_Pitch, float* P_Yaw)
 {
 	static int pwm_value = 0;
 	uint8_t uart_buffer[50];
@@ -249,40 +277,40 @@ void interpret_IR_char_tuning(char IR_Character, float* desired_Pitch, float* de
 	{
 		case('L'):
 
-				*desired_Pitch += 5;
-			  	sprintf((char*) uart_buffer,"Desired Pitch: %d\n",(int) *desired_Pitch);
+				*Desired_Pitch += 5;
+			  	sprintf((char*) uart_buffer,"Desired Pitch: %d\n",(int) *Desired_Pitch);
 			  	HAL_UART_Transmit(UART_Handle, uart_buffer, strlen((char*)uart_buffer), 100);
 			  	break;
 
 		case('R'):
 
-				*desired_Pitch -= 5;
-				sprintf((char*) uart_buffer,"Desired Pitch: %d\n",(int) *desired_Pitch);
+				*Desired_Pitch -= 5;
+				sprintf((char*) uart_buffer,"Desired Pitch: %d\n",(int) *Desired_Pitch);
 			  	HAL_UART_Transmit(UART_Handle, uart_buffer, strlen((char*)uart_buffer), 100);
 			  	break;
 
 		case('U'):
 
-				*desired_Roll += 5;
-				sprintf((char*) uart_buffer,"Desired Roll: %d\n",(int) *desired_Roll);
+				*Desired_Roll += 5;
+				sprintf((char*) uart_buffer,"Desired Roll: %d\n",(int) *Desired_Roll);
 				HAL_UART_Transmit(UART_Handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
 		case('D'):
 
-				*desired_Roll -= 5;
-				sprintf((char*) uart_buffer,"Desired Roll: %d\n",(int) *desired_Roll);
+				*Desired_Roll -= 5;
+				sprintf((char*) uart_buffer,"Desired Roll: %d\n",(int) *Desired_Roll);
 				HAL_UART_Transmit(UART_Handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
 		case('#'):
 
-				*desired_Roll 	= 0;
-				*desired_Pitch 	= 0;
+				*Desired_Roll 	= 0;
+				*Desired_Pitch 	= 0;
 				*P_Pitch 		= 0;
 				*P_Roll 		= 0;
 				*P_Yaw 			= 0;
-				sprintf((char*) uart_buffer,"Desired Roll: %d, Desired Pitch: %d\n",(int) *desired_Roll, (int) *desired_Pitch);
+				sprintf((char*) uart_buffer,"Desired Roll: %d, Desired Pitch: %d\n",(int) *Desired_Roll, (int) *Desired_Pitch);
 				HAL_UART_Transmit(UART_Handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
@@ -315,15 +343,15 @@ void interpret_IR_char_tuning(char IR_Character, float* desired_Pitch, float* de
 
 		case('4'):
 
-				*P_Pitch += P_VALUE_INCREMENT;
-				sprintf((char*) uart_buffer,"P_Pitch: %d.%d\n",(int) *P_Pitch, (int) (*P_Pitch*10)%10);
+				*P_Roll += P_VALUE_INCREMENT;
+				sprintf((char*) uart_buffer,"P_Roll: %d.%d\n",(int) *P_Roll, (int) (*P_Roll*10)%10);
 				HAL_UART_Transmit(UART_Handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
 		case('5'):
 
-				*P_Roll += P_VALUE_INCREMENT;
-				sprintf((char*) uart_buffer,"P_Roll: %d.%d\n",(int) *P_Roll, (int) (*P_Roll*10)%10);
+				*P_Pitch += P_VALUE_INCREMENT;
+				sprintf((char*) uart_buffer,"P_Pitch: %d.%d\n",(int) *P_Pitch, (int) (*P_Pitch*10)%10);
 				HAL_UART_Transmit(UART_Handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
@@ -336,15 +364,15 @@ void interpret_IR_char_tuning(char IR_Character, float* desired_Pitch, float* de
 
 		case('7'):
 
-				*P_Pitch -= P_VALUE_INCREMENT;
-				sprintf((char*) uart_buffer,"P_Pitch: %d.%d\n",(int) *P_Pitch, (int) (*P_Pitch*10)%10);
+				*P_Roll -= P_VALUE_INCREMENT;
+				sprintf((char*) uart_buffer,"P_Roll: %d.%d\n",(int) *P_Roll, (int) (*P_Roll*10)%10);
 				HAL_UART_Transmit(UART_Handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
 		case('8'):
 
-				*P_Roll -= P_VALUE_INCREMENT;
-				sprintf((char*) uart_buffer,"P_Roll: %d.%d\n",(int) *P_Roll, (int) (*P_Roll*10)%10);
+				*P_Pitch -= P_VALUE_INCREMENT;
+				sprintf((char*) uart_buffer,"P_Pitch: %d.%d\n",(int) *P_Pitch, (int) (*P_Pitch*10)%10);
 				HAL_UART_Transmit(UART_Handle, uart_buffer, strlen((char*)uart_buffer), 100);
 				break;
 
